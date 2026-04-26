@@ -3139,6 +3139,10 @@ export function OfficeScreen({
     events: externalOfficeEvents,
     feedEvents: externalOfficeFeedEvents,
   } = useOfficeExternalEvents();
+  const operationsFeedEvents = useMemo(
+    () => [...externalOfficeFeedEvents, ...feedEvents],
+    [externalOfficeFeedEvents, feedEvents],
+  );
   const taskBoard = useTaskBoardController({
     gatewayUrl,
     settingsCoordinator,
@@ -5175,7 +5179,7 @@ export function OfficeScreen({
             <OperationsCenterPanel
               agents={state.agents}
               runLog={runLog}
-              feedEvents={feedEvents}
+              feedEvents={operationsFeedEvents}
               onSelectAgent={(agentId) => {
                 handleOpenAgentChat(agentId);
                 setActiveSidebarTab("ops");

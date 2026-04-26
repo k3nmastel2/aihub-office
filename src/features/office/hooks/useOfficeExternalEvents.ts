@@ -46,7 +46,7 @@ export const useOfficeExternalEvents = (
         const newEvents = nextEvents.filter((event) => !previousSeen.has(event.id));
         seenIdsRef.current = new Set(nextEvents.map((event) => event.id));
         setEvents(nextEvents);
-        if (initializedRef.current && newEvents.length > 0) {
+        if (newEvents.length > 0) {
           setLatestNewEvent(newEvents[0] ?? null);
         }
         initializedRef.current = true;
