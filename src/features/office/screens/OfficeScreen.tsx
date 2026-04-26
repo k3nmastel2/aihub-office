@@ -1146,7 +1146,7 @@ export function OfficeScreen({
     return searchParams.has("code");
   });
   const [activeSidebarTab, setActiveSidebarTab] =
-    useState<HQSidebarTab>("inbox");
+    useState<HQSidebarTab>("ops");
   const pendingJukeboxCommandTimeoutsRef = useRef<
     Map<string, { requestKey: string; timeoutId: number }>
   >(new Map());
