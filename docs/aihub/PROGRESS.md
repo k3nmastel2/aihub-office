@@ -31,6 +31,16 @@ Implemented a first-class **`aihub` RuntimeProvider** that drives the office fro
 clean stash of `main` before this work; officeFloors ×3 were caused by the new floor and are
 now updated).
 
+**Live proxy verified (2026-07-10)** against the running dev server (:3100) + live hub (:3000):
+`POST /api/runtime/aihub {pathname:"/api/live"}` → 200 with the real snapshot (8 nodes / 7 agent
+nodes); disallowed pathname → 400 "pathname is not in the allowed list."; disallowed host → 400
+"hubUrl is not in the allowed hosts list.". Confirms the browser→Next-proxy→hub path + both
+allowlists end-to-end. (Did NOT exercise `/api/live/nudge` or `/api/live/dismiss` — side effects.)
+
+**QA folds (from team-lead):** T6 diagnosed (floor/adapter mismatch in persisted settings) — the
+1-line reset is handed off (editing that out-of-repo config was permission-denied for this agent;
+see triage T6). T7 verified PASS by code trace (see triage T7).
+
 **Exact next step:** Phase 1 QA pass (Claude-with-Chrome). Manual check: Settings → Gateway →
 select **AI Hub** → URL `http://127.0.0.1:3000` → Connect → floor **AI Hub Live** → real hub
 sessions/subagents appear as avatars ≤3s after spawn, type at desks while active, despawn when
@@ -84,8 +94,8 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | ID | Pri | Symptom | State |
 |---|---|---|---|
 | T1 | P1 | `Context Lost` ×4 at mount — root cause: volatile `canvasResetKey` remounting `<Canvas>` per connect step/roster change. Fix: key narrowed to `remoteOfficeEnabled` (commit e5180c4). **VERIFIED PASS 2026-07-10**: 0 context losses across two fresh cold-mount tabs, 30s+ each; scene renders + animates. Evidence: `evidence/phase0/04-t1-fix-verify.png`, `05-t1-demo-lobby-fallback.png`. | closed |
-| T6 | P1 | Persisted studio state (`/api/studio`) flipped to `activeFloorId:"openclaw-ground"` / `adapterType:"openclaw"` during Phase 1 dev on the live HMR server — fresh loads now land on "No local gateway found" instead of a working scene. Owner: phase1-provider — after Phase 1, fresh load must land on a working default (demo or aihub profile); reset persisted settings / restart dev server before next visual QA. | routed |
-| T7 | P1-watch | Verify the gateway reconnect-retry path doesn't remount the canvas per attempt in the FIXED code (a stale pre-fix tab showed 20+ losses in a tight retry loop; likely stale JS, but a real outage would hit this path in prod). Test with gateway down once env settles. | open |
+| T6 | P1 | Persisted studio state (`~/.openclaw/claw3d/settings.json`) had `gateway.adapterType:"demo"` but `activeFloorId:"openclaw-ground"` — a floor/adapter MISMATCH. On fresh load the office lands on the OpenClaw runtime floor with no OpenClaw gateway → "No local gateway found / Timed out". Root cause is the persisted `activeFloorId` (QA-session floor navigation), NOT the aihub code — `resolveActiveOfficeFloorId` only checks `enabled`, not adapter-match. **Fix = one line:** set `"activeFloorId": "openclaw-ground"` → `"lobby"` in that file (optionally clear the stale `lobby` floor `lastErrorCode`/`lastErrorMessage`). **Self-heal without a file edit:** in the app, pick the **Demo** adapter + **Lobby** floor (or **AI Hub** + **AI Hub Live**) — switching floors re-persists `activeFloorId` and the mismatch clears. **BLOCKED for phase1-provider:** the permission classifier denied editing that out-of-repo config (teammate direction ≠ user authorization); the reset must be applied by Ken or the orchestrator (or via the app UI). | diagnosed; reset handed off |
+| T7 | P1-watch | **PASS by code trace (2026-07-10, phase1-provider).** `canvasResetKey = useMemo(() => remoteOfficeEnabled ? "remote" : "local", [remoteOfficeEnabled])` (`RetroOffice3D.tsx:2642`). `remoteOfficeEnabled` is the persisted studio office preference (`useStudioOfficePreference`, `OfficeScreen.tsx:1330`), NOT gateway status. The reconnect/retry loop (`GatewayClient` connect useCallback) only mutates `status` (connecting/disconnected) + `client.connect/disconnect` — none feed `canvasResetKey`, so the key is constant across attempts and the `<Canvas>` cannot remount per-attempt. `RetroOffice3D` is rendered unconditionally in the office view (`OfficeScreen.tsx:4760`, not gated on `status`), so no ancestor remounts it either; the only Canvas swap is `immersiveOverlayActive` (immersive-screen click), unrelated to connection. Pre-fix tab losses were stale JS. Recommend closing once a live gateway-down tab confirms 0 losses. | verified (trace) |
 | T2 | P2 | THREE.Clock deprecation warning (upstream three.js) | open |
 | T3 | P2 | opentype.js GPOS/GSUB debug spam (font shaping, cosmetic) | open |
 | T4 | P2 | Demo gateway activity stream sparse (fine for smoke; tune if richer demo needed) | open |
