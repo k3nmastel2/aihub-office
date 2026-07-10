@@ -125,8 +125,14 @@ const INITIAL_CONNECT_RETRY_DELAY_MS = 1_200;
 const OPENCLAW_CONTROL_UI_CLIENT_ID = "openclaw-control-ui";
 const OPENCLAW_WEBCHAT_UI_CLIENT_ID = "webchat-ui";
 
+// Adapters that auto-connect on load and auto-retry without a manual Connect click.
+// "aihub" is the always-on local hub (HTTP live-feed) — it connects itself like the
+// managed WS adapters. The other HTTP adapters (custom/local/claw3d) stay manual-connect.
 const isAutoManagedAdapter = (adapterType: StudioGatewayAdapterType) =>
-  adapterType === "openclaw" || adapterType === "hermes" || adapterType === "demo";
+  adapterType === "openclaw" ||
+  adapterType === "hermes" ||
+  adapterType === "demo" ||
+  adapterType === "aihub";
 
 export const resolveGatewayClientName = (
   adapterType: StudioGatewayAdapterType,
@@ -1227,7 +1233,6 @@ export const useGatewayConnection = (
     (selectedAdapterType === "custom" ||
       selectedAdapterType === "local" ||
       selectedAdapterType === "claw3d" ||
-      selectedAdapterType === "aihub" ||
       !hasLastKnownGoodState ||
       !(gatewayUrl ?? "").trim() ||
       (selectedAdapterType === "openclaw" && !(token ?? "").trim()) ||

@@ -26,7 +26,7 @@
 | `src/features/retro-office/RetroOffice3D.tsx` | `canvasResetKey` narrowed to `remoteOfficeEnabled` only (T1 fix — was force-losing the WebGL context on every gateway-status/roster change) | 0/T1 |
 | `src/lib/runtime/types.ts` | +`"aihub"` in `RuntimeProviderId` | 1 |
 | `src/lib/runtime/createRuntimeProvider.ts` | +`case "aihub"` → `new AihubRuntimeProvider(client, runtimeUrl)` | 1 |
-| `src/lib/gateway/GatewayClient.ts` | +`emitSyntheticEvent()`; +`"aihub"` in adapter lists (normalizeLocalGatewayDefaults, profile loop, connect probe branch → `probeAihubRuntime`, disconnect branch, shouldPromptForConnect); +`probeAihubRuntime` import | 1 |
+| `src/lib/gateway/GatewayClient.ts` | +`emitSyntheticEvent()`; +`"aihub"` in adapter lists (normalizeLocalGatewayDefaults, profile loop, connect probe branch → `probeAihubRuntime`, disconnect branch); +`"aihub"` in `isAutoManagedAdapter` so it auto-connects/retries on load (T8); +`probeAihubRuntime` import | 1 |
 | `src/lib/studio/settings.ts` | +`"aihub"` in `StudioGatewayAdapterType` + `STUDIO_GATEWAY_ADAPTER_TYPES` + `normalizeGatewayAdapterType` + both profile loops; +`aihub` case in `resolveDefaultStudioGatewayProfile` (`DEFAULT_AIHUB_RUNTIME_URL = http://127.0.0.1:3000`) | 1 |
 | `src/lib/studio/settings-store.ts` | +`"aihub"` in `normalizeAdapterType` | 1 |
 | `src/lib/office/floors.ts` | +`FloorProvider "aihub"`, +`FloorId "aihub-live"`, +OFFICE_FLOORS `aihub-live` entry (sortOrder 29, `aihub-default`) | 1 |
