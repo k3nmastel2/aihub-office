@@ -31,7 +31,9 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 
 | ID | Pri | Symptom | State |
 |---|---|---|---|
-| T1 | P1 | `THREE.WebGLRenderer: Context Lost` ×4 at mount. ROOT CAUSE (Opus, HIGH confidence): `canvasResetKey` memo (RetroOffice3D.tsx:2637) included `gatewayStatus`/`agents.length`/`officeCenterSignal`, so every connect step and roster change remounted `<Canvas>` (R3F `forceContextLoss()` on unmount) — real prod perf bug, catastrophic for ephemeral-subagent churn. FIX: key narrowed to `remoteOfficeEnabled` only; typecheck green. Verify: zero Context Lost on reload + agents no longer flash on roster change. | fixed, verifying |
+| T1 | P1 | `Context Lost` ×4 at mount — root cause: volatile `canvasResetKey` remounting `<Canvas>` per connect step/roster change. Fix: key narrowed to `remoteOfficeEnabled` (commit e5180c4). **VERIFIED PASS 2026-07-10**: 0 context losses across two fresh cold-mount tabs, 30s+ each; scene renders + animates. Evidence: `evidence/phase0/04-t1-fix-verify.png`, `05-t1-demo-lobby-fallback.png`. | closed |
+| T6 | P1 | Persisted studio state (`/api/studio`) flipped to `activeFloorId:"openclaw-ground"` / `adapterType:"openclaw"` during Phase 1 dev on the live HMR server — fresh loads now land on "No local gateway found" instead of a working scene. Owner: phase1-provider — after Phase 1, fresh load must land on a working default (demo or aihub profile); reset persisted settings / restart dev server before next visual QA. | routed |
+| T7 | P1-watch | Verify the gateway reconnect-retry path doesn't remount the canvas per attempt in the FIXED code (a stale pre-fix tab showed 20+ losses in a tight retry loop; likely stale JS, but a real outage would hit this path in prod). Test with gateway down once env settles. | open |
 | T2 | P2 | THREE.Clock deprecation warning (upstream three.js) | open |
 | T3 | P2 | opentype.js GPOS/GSUB debug spam (font shaping, cosmetic) | open |
 | T4 | P2 | Demo gateway activity stream sparse (fine for smoke; tune if richer demo needed) | open |
