@@ -382,6 +382,29 @@ const deriveChatRequestCard = (
   });
 };
 
+// Two cards are equivalent for de-dupe purposes when every field except the volatile
+// timestamps (createdAt/updatedAt/lastActivityAt) matches. Poll-driven appliers use this to
+// avoid re-dispatching an unchanged card on every refresh.
+const isSameTaskBoardCardIgnoringTimestamps = (
+  a: TaskBoardCard,
+  b: TaskBoardCard,
+): boolean =>
+  a.id === b.id &&
+  a.title === b.title &&
+  a.description === b.description &&
+  a.status === b.status &&
+  a.source === b.source &&
+  a.sourceEventId === b.sourceEventId &&
+  a.assignedAgentId === b.assignedAgentId &&
+  a.playbookJobId === b.playbookJobId &&
+  a.runId === b.runId &&
+  a.channel === b.channel &&
+  a.externalThreadId === b.externalThreadId &&
+  a.isArchived === b.isArchived &&
+  a.isInferred === b.isInferred &&
+  a.notes.length === b.notes.length &&
+  a.notes.every((note, index) => note === b.notes[index]);
+
 export const deriveRecoveredAgentRequestCard = (
   agent: AgentState,
 ): TaskBoardCard | null => {
@@ -428,8 +451,12 @@ export const deriveRecoveredAgentRequestCard = (
     Number.isFinite(agent.lastActivityAt)
       ? new Date(agent.lastActivityAt).toISOString()
       : new Date().toISOString();
+  // Identity must be content-derived, NOT timestamp-derived: providers whose lastActivityAt
+  // advances every poll (e.g. AI Hub live agents) would otherwise mint a new card id each poll,
+  // defeating the recovered-request de-dupe guard → an upsert per agent per poll → task-board
+  // churn that cascades into "Maximum update depth exceeded" (T12c).
   const fallbackKey = `history:${agent.sessionKey}:fallback:${stableIdFragment(
-    `${fallbackText}:${fallbackTimestamp}`,
+    fallbackText,
   )}`;
   return makeCard({
     id: fallbackKey,
@@ -724,6 +751,12 @@ export const useTaskBoardController = ({
       const existing =
         stateRef.current.cards.find((card) => card.id === task.id) ?? null;
       const nextCard = buildCardFromGatewayTask(task, existing);
+      // Idempotent: a poll (refreshRemoteTasks) re-applies every task, so skip the dispatch
+      // when nothing but volatile timestamps changed — otherwise every poll churns state.cards
+      // → re-render storm → "Maximum update depth exceeded" (T12c).
+      if (existing && isSameTaskBoardCardIgnoringTimestamps(existing, nextCard)) {
+        return existing;
+      }
       dispatch({ type: "upsert", card: nextCard });
       archiveMatchingInferredCards(nextCard);
       return nextCard;
@@ -736,6 +769,11 @@ export const useTaskBoardController = ({
       const existing =
         stateRef.current.cards.find((card) => card.id === task.id) ?? null;
       const nextCard = buildCardFromSharedTaskRecord(task, existing);
+      // Idempotent: refreshSharedTasks re-applies every stored task on each poll; skip the
+      // dispatch when only volatile timestamps differ (T12c churn root cause).
+      if (existing && isSameTaskBoardCardIgnoringTimestamps(existing, nextCard)) {
+        return existing;
+      }
       dispatch({ type: "upsert", card: nextCard });
       archiveMatchingInferredCards(nextCard);
       return nextCard;
