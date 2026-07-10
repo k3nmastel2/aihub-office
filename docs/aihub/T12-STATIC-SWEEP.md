@@ -71,6 +71,9 @@ Root cause proven by runtime stack capture + in-page sourcemap decoding (console
 - Measured: ~0.2/sec steady (poll-gated, gaps 3.6-7.6s), fixed ~105-commit burst per error = one capped runaway per trigger. `setClockTick` (1656) appeared once as a benign bystander. ONE dominant loop — TrailSystem/#17-20/#25 are perf smells, not this bug.
 - Fix: stabilize/quantize `animationNowMs` (kill Factor A) + harden effect 3254 (pure updater — move the `prevImmediateGymHoldRef` mutation out of the state updater; stable `now` for the latch so the bailout works — kill Factor B).
 
+## Static↔runtime reconciliation (final)
+The sweep's deep re-trace of effect 3254-3294 found the guard "statically correct in the happy path" (latch via `prevImmediateGymHoldRef`, single `Date.now()` per execution, exhaustive key+value check) but explicitly could not rule out double-invoke/concurrent-render subtleties — and the runtime capture proved that subtlety fires: the ref is mutated INSIDE the state updater (impure), so under nested cascading renders the latch corrupts and the advancing `now` defeats the bailout. Lesson recorded: a guard that reads correct statically can still loop under React 19 nested-render semantics; runtime stack evidence is the arbiter. Also verified: the other consumers of the poisoned `officeAnimationState` are airtight by construction (phone/text cleanups keep original refs; janitor cues are id-keyed), and the feedEvents mood/speech effects are DEMOTED from the top suspects (feed-cadence-driven, not render-driven; still unguarded — backlog). Fallback if the gym fix doesn't zero the bursts: store.tsx `updateAgent`/`hydrateAgents` value-diffing (the amplifier one level upstream).
+
 ## Backlog candidates regardless of T12 outcome
 - Re-enable RAF livePatchQueue in office view (arch finding)
 - Quantize `hubUpdatedAtMs` in aihub snapshot.ts (stable values for unchanged ages)
