@@ -169,12 +169,7 @@ export function TrailSystem({
     if (frameRef.current % 8 === 0 || changed) {
       const nextPoints: TrailPoint[] = [];
       for (const trailPoints of trails.values()) nextPoints.push(...trailPoints);
-      setPoints((prev) =>
-        prev.length === nextPoints.length &&
-        prev.every((point, index) => point === nextPoints[index])
-          ? prev
-          : nextPoints,
-      );
+      setPoints([...nextPoints]);
     }
   });
 

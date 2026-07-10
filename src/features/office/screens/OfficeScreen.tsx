@@ -3181,10 +3181,26 @@ export function OfficeScreen({
     enabled: runtimeSupportsSkills,
     agents: state.agents,
   });
-  const animationNowMs = Date.now();
+  // Quantize to 1s buckets: this feeds the officeAnimationState memo (below) as a dep, and a raw
+  // per-render Date.now() gives that memo a fresh identity every render → the gym-cooldown effect
+  // (deps include immediateGymHoldByAgentId derived from this memo) re-runs every render and
+  // cascades into "Maximum update depth exceeded" (T12c Factor A). The animation state here is
+  // latch/hold-expiry level (per-frame motion happens in useFrame), so 1s granularity is invisible.
+  const animationNowMs = Math.floor(Date.now() / 1000) * 1000;
+  // Stabilize officeTriggerState by VALUE for the animation memo: it is re-created with
+  // value-identical content under churn (reduce/reconcile/hold setters allocate fresh objects,
+  // amplified by state.agents' fresh identity per dispatch), and a fresh identity every render
+  // makes this memo recompute ~50×/cascade → "Maximum update depth exceeded" (T12c driver, named
+  // via per-dep diff: officeTriggerState spiked to ~50×/cascade while state.agents stayed flat).
+  const officeTriggerStateKey = JSON.stringify(officeTriggerState);
+  const stableOfficeTriggerState = useMemo(
+    () => officeTriggerState,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [officeTriggerStateKey],
+  );
   const officeAnimationState = useMemo(() => {
     const base = buildOfficeAnimationState({
-      state: officeTriggerState,
+      state: stableOfficeTriggerState,
       agents: state.agents,
       marketplaceGymHoldByAgentId,
       nowMs: animationNowMs,
@@ -3225,7 +3241,7 @@ export function OfficeScreen({
     animationNowMs,
     danceUntilByAgentId,
     marketplaceGymHoldByAgentId,
-    officeTriggerState,
+    stableOfficeTriggerState,
     skillTriggers.movementTargetByAgentId,
     state.agents,
   ]);
@@ -3252,7 +3268,9 @@ export function OfficeScreen({
   );
 
   useEffect(() => {
-    const now = Date.now();
+    // Quantized so the latch value (now + LATCH_MS) is stable across a commit — a render-scoped
+    // Date.now() advancing ~1ms per nested re-render defeated the content bailout below (T12c Factor B).
+    const now = Math.floor(Date.now() / 1000) * 1000;
     setGymCooldownUntilByAgentId((previous) => {
       const next: Record<string, number> = {};
       for (const agent of state.agents) {
@@ -3275,12 +3293,6 @@ export function OfficeScreen({
           next[agentId] = previousUntil;
         }
       }
-      prevImmediateGymHoldRef.current = Object.fromEntries(
-        state.agents.map((agent) => [
-          agent.agentId,
-          Boolean(immediateGymHoldByAgentId[agent.agentId]),
-        ]),
-      );
       const prevKeys = Object.keys(previous);
       const nextKeys = Object.keys(next);
       if (
@@ -3291,6 +3303,14 @@ export function OfficeScreen({
       }
       return next;
     });
+    // Side effect kept OUT of the (pure) state updater: React 19 may invoke the updater more than
+    // once per commit, and mutating this ref inside it corrupts the wasImmediateHeld latch (T12c Factor B).
+    prevImmediateGymHoldRef.current = Object.fromEntries(
+      state.agents.map((agent) => [
+        agent.agentId,
+        Boolean(immediateGymHoldByAgentId[agent.agentId]),
+      ]),
+    );
   }, [immediateGymHoldByAgentId, state.agents]);
 
   const activeGithubReviewAgentId = useMemo(
