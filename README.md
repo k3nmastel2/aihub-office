@@ -1,3 +1,7 @@
+# AI Hub Office — a fork of Claw3D
+
+> **Fork notice.** This is **aihub-office**, Ken Nguyen's fork of [Claw3D by Luke The Dev](https://github.com/iamlukethedev/claw3d) (MIT licensed — see [LICENSE](LICENSE)). It adds a first-class `aihub` runtime provider that drives the 3D office from the AI Hub's `/api/live` (Claude Code sessions, recursive subagent trees, Codex/Gemini/Hermes, tasks, blocked badges, MCP services). Studio runs on port **3100** here. Fork docs: [FORK.md](FORK.md) · [docs/aihub/PROGRESS.md](docs/aihub/PROGRESS.md). All credit for the office itself goes upstream — original README follows.
+
 # Claw3D — A 3D Workspace for AI Agents
 
 <p align="center">
