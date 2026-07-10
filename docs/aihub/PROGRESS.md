@@ -12,19 +12,30 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 - [x] `.env` created with `PORT=3100` (hub owns :3000)
 - [x] `npm install` clean (node v22.22.3, npm 10.9.8)
 - [x] `FORK.md` (merge policy + upstream-touch table)
-- [ ] README attribution banner
-- [ ] Boot: `npm run demo-gateway` (ws :18789) + `npm run dev` (:3100) → office renders demo agents
-- [ ] Chrome verification pass + screenshot evidence
-- [ ] Triage any P0/P1 findings, fix, then commit Phase 0 and mark task #1 complete
+- [x] README attribution banner
+- [x] Boot: demo gateway on ws :18789 + Studio dev on :3100 (NOTE: `PORT=3100` must be in the
+  shell env — `server/index.js` reads `process.env.PORT` before Next loads `.env`; a stale
+  `.next/dev/lock` from a crashed boot must be removed before retry)
+- [x] Chrome verification pass — **QA VERDICT: PASS** (qa-phase0, 2026-07-10). Auto-connected to
+  demo gateway ("DEMO • CONNECTED", 3 agents: Mika/Rune/Avery), agents animate (Avery walked
+  between T0 and T+10s), console clean of uncaught exceptions, all requests 200, hub :3000
+  unaffected. Evidence: `docs/aihub/evidence/phase0/01..03*.png`
+- [x] Triage complete → Phase 0 CLOSED (no P0s; P1 investigation gates Phase 1 start)
 
 ## Exact next step
 
-Add README attribution banner, then boot demo gateway + dev server and verify in Chrome
-(connect Studio to `ws://localhost:18789`, demo provider). Screenshot the office with demo agents.
+Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then start Phase 1
+(aihub RuntimeProvider; see plan + task #2).
 
 ## Open triage items
 
-_(none yet)_
+| ID | Pri | Symptom | State |
+|---|---|---|---|
+| T1 | P1 | `THREE.WebGLRenderer: Context Lost` ×4 during initial mount only; self-recovered, no recurrence in 10s window. Suspect dev-mode double-mount / multiple WebGL canvases (main scene + thumbnail). Root-cause before long-running sessions; fix or downgrade to P2 with rationale. | investigating |
+| T2 | P2 | THREE.Clock deprecation warning (upstream three.js) | open |
+| T3 | P2 | opentype.js GPOS/GSUB debug spam (font shaping, cosmetic) | open |
+| T4 | P2 | Demo gateway activity stream sparse (fine for smoke; tune if richer demo needed) | open |
+| T5 | P2 | Demo profile auto-connects, silently bypassing onboarding connection step — confirm intended | open |
 
 ## Phase ledger
 
