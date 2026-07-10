@@ -105,12 +105,18 @@ The "RUNTIME CONFIRMATION" attribution above (gym-cooldown, 91% at OfficeScreen:
    gym, officeTriggerState — every "0" was a churn lull; every active-churn window ~24-46/60s).
    Measure under CONSTANT verified churn ONLY.
 2. Error-stack frequency ≠ causation — call-frequency sampling bias toward the most-CALLED setter.
-3. Dev-build artifacts (React StrictMode double-invokes, offset sourcemaps, dev error overlay)
-   systematically polluted diagnosis.
+3. Dev-build artifacts (React StrictMode double-invokes, offset sourcemaps, dev error overlay,
+   **HMR reconnects**) systematically polluted diagnosis. QA round 4 caught a concrete instance: a
+   fresh burst of ~17 update-depth errors fired **immediately after a `_next/webpack-hmr` websocket
+   reconnect failure** (T9) — i.e. some of the shipped-state count is dev-harness noise, not the
+   steady-state loop. This is a dev-only confound absent from a production build.
 
 **Recommended follow-up path (dedicated stabilization sprint, NOT Phase 2):**
-1. Reproduce on a **PRODUCTION build** (`npm run build && npm start` on :3100) — removes
-   StrictMode/dev-overlay confounds; may change behavior entirely.
+1. Reproduce on a **PRODUCTION build FIRST** (`npm run build && npm start` on :3100) — removes
+   StrictMode/dev-overlay/HMR confounds; may change behavior entirely. QA round 4 adds direct weight:
+   part of the shipped-state count was demonstrably HMR-triggered (burst right after a `webpack-hmr`
+   reconnect failure), so the true steady-state loop magnitude is unknown until measured without the
+   dev harness. Do NOT invest further diagnosis in the dev build.
 2. **First structural candidate: re-enable the RAF `livePatchQueue` batching in the office view**
    (arch finding above) — batching the synchronous dispatch storm plausibly breaks ANY dep's cascade
    regardless of which one churns.
@@ -120,3 +126,20 @@ The "RUNTIME CONFIRMATION" attribution above (gym-cooldown, 91% at OfficeScreen:
 **Shipped state:** gym-cooldown hardening KEPT (correct); officeTriggerState stabilization + TrailSystem
 guard REVERTED. T12 = precisely-documented **P2 OPEN debt** (non-fatal: canvas renders, roster exact,
 animations verified every round).
+
+### QA round 4 — official shipped-state measurement (2026-07-10)
+
+The measured, shipped baseline for the T12 debt (dev build, live hub churn):
+
+- **103 update-depth errors / 3 min**, **burst-then-sustained** shape: **0 for the first minute** →
+  a burst of ~64 correlating with a churn event → a trickle → a fresh burst of ~17 **immediately
+  after a `_next/webpack-hmr` reconnect failure** (see lesson 3 / follow-up 1 — part of this count is
+  HMR-triggered dev noise, not the steady loop).
+- **Everything else green:** roster tracked **19→18 EXACTLY** on both sides through real agent
+  turnover, animations alive, **0 Context Lost**, **236/236 requests clean**.
+- **Dev error overlay leaks a visible fragment into the office view** (`evidence/phase1/11-close-r4-plus3min.png`).
+  This is a **dev-only cosmetic** artifact of the Next dev overlay rendering over the R3F canvas — NOT
+  a scene/canvas bug and NOT part of T12's render loop. Recorded so it is **not re-triaged**; it cannot
+  occur in a production build.
+
+Evidence: `evidence/phase1/10-close-r4-connected.png`, `11-close-r4-plus3min.png`.
