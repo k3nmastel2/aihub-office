@@ -2869,7 +2869,25 @@ export function RetroOffice3D({
           status: agent.status,
         };
       }
-      setRenderAgentUiById(next);
+      // Only publish when the snapshot actually changed — this runs every 250ms and a fresh
+      // object every tick forces a re-render (and re-runs every memo/effect keyed on it),
+      // which cascades into update-depth loops when combined with other agent-driven effects.
+      setRenderAgentUiById((prev) => {
+        const prevIds = Object.keys(prev);
+        const nextIds = Object.keys(next);
+        if (
+          prevIds.length === nextIds.length &&
+          nextIds.every(
+            (id) =>
+              prev[id] &&
+              prev[id].state === next[id].state &&
+              prev[id].status === next[id].status,
+          )
+        ) {
+          return prev;
+        }
+        return next;
+      });
     };
 
     syncRenderAgentUi();

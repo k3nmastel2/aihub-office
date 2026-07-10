@@ -969,7 +969,11 @@ export const useTaskBoardController = ({
       type: "upsertMany",
       cards: [...playbookCards, ...standupCards],
     });
-  }, [cronJobs, standup]);
+    // Depend on standup.config (a stable useState value), not the standup controller object
+    // (a fresh literal every render). Depending on the whole controller re-ran this effect
+    // each render and re-dispatched upsertMany whenever seed cards existed — a setState loop
+    // ("Maximum update depth exceeded"). buildStandupSeedCards only reads standup.config.
+  }, [cronJobs, standup.config]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;

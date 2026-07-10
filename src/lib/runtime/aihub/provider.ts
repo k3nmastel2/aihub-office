@@ -8,10 +8,10 @@ import type {
 import { parseAgentIdFromSessionKey } from "@/lib/gateway/GatewayClient";
 import {
   fetchHubLive,
-  normalizeHubBaseUrl,
   postHubDismiss,
   postHubNudge,
   probeAihubRuntime,
+  resolveAihubHubUrl,
 } from "@/lib/runtime/aihub/http";
 import { diffSnapshots } from "@/lib/runtime/aihub/diff";
 import {
@@ -81,7 +81,7 @@ export class AihubRuntimeProvider implements RuntimeProvider, LiveFeedRuntimePro
     readonly client: GatewayClient,
     runtimeUrl: string
   ) {
-    this.hubUrl = normalizeHubBaseUrl(runtimeUrl);
+    this.hubUrl = resolveAihubHubUrl(runtimeUrl);
     this.metadata = {
       id: this.id,
       label: this.label,

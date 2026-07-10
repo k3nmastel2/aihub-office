@@ -27,7 +27,7 @@
 | `src/lib/runtime/types.ts` | +`"aihub"` in `RuntimeProviderId` | 1 |
 | `src/lib/runtime/createRuntimeProvider.ts` | +`case "aihub"` → `new AihubRuntimeProvider(client, runtimeUrl)` | 1 |
 | `src/lib/gateway/GatewayClient.ts` | +`emitSyntheticEvent()`; +`"aihub"` in adapter lists (normalizeLocalGatewayDefaults, profile loop, connect probe branch → `probeAihubRuntime`, disconnect branch); +`"aihub"` in `isAutoManagedAdapter` so it auto-connects/retries on load (T8); +`probeAihubRuntime` import | 1 |
-| `src/lib/studio/settings.ts` | +`"aihub"` in `StudioGatewayAdapterType` + `STUDIO_GATEWAY_ADAPTER_TYPES` + `normalizeGatewayAdapterType` + both profile loops; +`aihub` case in `resolveDefaultStudioGatewayProfile` (`DEFAULT_AIHUB_RUNTIME_URL = http://127.0.0.1:3000`) | 1 |
+| `src/lib/studio/settings.ts` | +`"aihub"` in `StudioGatewayAdapterType` + `STUDIO_GATEWAY_ADAPTER_TYPES` + `normalizeGatewayAdapterType` + both profile loops; +`aihub` case in `resolveDefaultStudioGatewayProfile` (`DEFAULT_AIHUB_RUNTIME_URL = http://127.0.0.1:3000`); +aihub URL self-heal in `resolveStudioGatewayProfiles` (`coerceAihubProfileUrl`: a non-http(s) aihub profile URL → hub default; T13/T8b — aihub is the only adapter whose URL differs from the shared `ws://…:18789` gateway port) | 1 |
 | `src/lib/studio/settings-store.ts` | +`"aihub"` in `normalizeAdapterType` | 1 |
 | `src/lib/office/floors.ts` | +`FloorProvider "aihub"`, +`FloorId "aihub-live"`, +OFFICE_FLOORS `aihub-live` entry (sortOrder 29, `aihub-default`) | 1 |
 | `src/features/office/components/panels/SettingsPanel.tsx` | +`["aihub","AI Hub"]` dropdown option; +aihub in `tokenOptional` + URL placeholder | 1 |
@@ -37,6 +37,8 @@
 | `src/features/agents/operations/agentFleetHydration.ts` | +`role?`/`hub?` on the fetch-side `AgentsListResult.agents` type | 1 |
 | `src/lib/runtime/useRuntimeConnection.ts` | +start/stop live-feed effect keyed on `[provider, status]` (via `isLiveFeedRuntimeProvider`) | 1 |
 | `tests/unit/officeFloors.test.ts` | +`aihub-live` in the 3 canonical floor-list assertions (new floor) | 1 |
+| `src/features/retro-office/RetroOffice3D.tsx` | `syncRenderAgentUi` diffs before `setRenderAgentUiById` (was a fresh object every 250ms → re-render churn feeding update-depth loops) (T12) | 1/T12 |
+| `src/features/office/tasks/useTaskBoardController.ts` | seed-cards effect depends on `standup.config` (stable useState) not the `standup` controller object (fresh literal each render) → stops an `upsertMany` setState loop (T12) | 1/T12 |
 | _(pending)_ `src/features/retro-office/RetroOffice3D.tsx` | door-spawn branch, leaving/fade props, pod rugs render | 2–3 |
 | _(pending)_ `src/features/retro-office/objects/agents.tsx` | badge billboard, nameplate chips, fade, role props | 4, 7 |
 | _(pending)_ `src/features/retro-office/core/furnitureDefaults.ts` | +`"aihub"` layout preset | 3 |

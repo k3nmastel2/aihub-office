@@ -4,6 +4,26 @@
 
 const AIHUB_PROXY_PATH = "/api/runtime/aihub";
 
+// The AI Hub always speaks HTTP on the hub port. The shared gateway settings can hand aihub
+// a `ws://…:18789` URL (the value another adapter uses) because aihub is the first adapter
+// whose URL genuinely differs from the shared gateway port. A ws/wss/empty/invalid URL is
+// therefore a mis-set value — resolve it to the hub default rather than dialing the gateway.
+export const DEFAULT_AIHUB_HUB_URL = "http://127.0.0.1:3000";
+
+export const resolveAihubHubUrl = (value: string): string => {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return DEFAULT_AIHUB_HUB_URL;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return DEFAULT_AIHUB_HUB_URL;
+    }
+    return trimmed.replace(/\/$/, "");
+  } catch {
+    return DEFAULT_AIHUB_HUB_URL;
+  }
+};
+
 export const normalizeHubBaseUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -93,7 +113,7 @@ export async function postHubDismiss(
 }
 
 export async function probeAihubRuntime(hubUrl: string): Promise<void> {
-  const raw = await fetchHubLive(hubUrl);
+  const raw = await fetchHubLive(resolveAihubHubUrl(hubUrl));
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { nodes?: unknown }).nodes)) {
     throw new Error("AI Hub /api/live did not return a live snapshot.");
   }

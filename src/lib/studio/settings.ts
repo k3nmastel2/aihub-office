@@ -288,6 +288,20 @@ const DEFAULT_LOCAL_ADAPTER_GATEWAY_URL = "ws://localhost:18789";
 const DEFAULT_LOCAL_RUNTIME_URL = "http://localhost:7770";
 const DEFAULT_CLAW3D_RUNTIME_URL = "http://localhost:3000/api/runtime/custom";
 const DEFAULT_AIHUB_RUNTIME_URL = "http://127.0.0.1:3000";
+
+const coerceAihubProfileUrl = (url: string): string => {
+  const trimmed = (url ?? "").trim();
+  if (!trimmed) return DEFAULT_AIHUB_RUNTIME_URL;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return DEFAULT_AIHUB_RUNTIME_URL;
+    }
+    return trimmed;
+  } catch {
+    return DEFAULT_AIHUB_RUNTIME_URL;
+  }
+};
 const DEFAULT_CUSTOM_RUNTIME_URL = "http://localhost:7770";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1029,6 +1043,18 @@ export const resolveStudioGatewayProfiles = ({
   for (const adapterType of STUDIO_GATEWAY_ADAPTER_TYPES) {
     if (profiles[adapterType]?.url) continue;
     profiles[adapterType] = resolveDefaultStudioGatewayProfile(adapterType, localDefaults);
+  }
+
+  // aihub speaks HTTP to the hub. The shared top-level gateway.url (a ws:// value used by
+  // demo/openclaw/hermes) can be stamped onto the aihub profile when they desync; coerce any
+  // non-http(s) aihub URL back to the hub default so the field, connect, and persisted profile
+  // all self-heal. aihub is the only adapter whose URL differs from the shared gateway port.
+  const aihubProfile = profiles.aihub;
+  if (aihubProfile) {
+    const coercedAihubUrl = coerceAihubProfileUrl(aihubProfile.url);
+    if (coercedAihubUrl !== aihubProfile.url) {
+      profiles.aihub = { url: coercedAihubUrl, token: aihubProfile.token ?? "" };
+    }
   }
 
   return {
