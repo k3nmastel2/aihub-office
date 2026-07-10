@@ -3187,20 +3187,9 @@ export function OfficeScreen({
   // cascades into "Maximum update depth exceeded" (T12c Factor A). The animation state here is
   // latch/hold-expiry level (per-frame motion happens in useFrame), so 1s granularity is invisible.
   const animationNowMs = Math.floor(Date.now() / 1000) * 1000;
-  // Stabilize officeTriggerState by VALUE for the animation memo: it is re-created with
-  // value-identical content under churn (reduce/reconcile/hold setters allocate fresh objects,
-  // amplified by state.agents' fresh identity per dispatch), and a fresh identity every render
-  // makes this memo recompute ~50×/cascade → "Maximum update depth exceeded" (T12c driver, named
-  // via per-dep diff: officeTriggerState spiked to ~50×/cascade while state.agents stayed flat).
-  const officeTriggerStateKey = JSON.stringify(officeTriggerState);
-  const stableOfficeTriggerState = useMemo(
-    () => officeTriggerState,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [officeTriggerStateKey],
-  );
   const officeAnimationState = useMemo(() => {
     const base = buildOfficeAnimationState({
-      state: stableOfficeTriggerState,
+      state: officeTriggerState,
       agents: state.agents,
       marketplaceGymHoldByAgentId,
       nowMs: animationNowMs,
@@ -3241,7 +3230,7 @@ export function OfficeScreen({
     animationNowMs,
     danceUntilByAgentId,
     marketplaceGymHoldByAgentId,
-    stableOfficeTriggerState,
+    officeTriggerState,
     skillTriggers.movementTargetByAgentId,
     state.agents,
   ]);

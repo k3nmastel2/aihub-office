@@ -81,3 +81,42 @@ The sweep's deep re-trace of effect 3254-3294 found the guard "statically correc
 - standup.config upsert guard (audit verdict 2)
 - syncArrivalState: depend on standupMeeting fields, not object
 - scheduled-standup interval stability (functional bug)
+
+## ROUND-3 CONTAINMENT — corrected verdict (2026-07-10)
+
+The "RUNTIME CONFIRMATION" attribution above (gym-cooldown, 91% at OfficeScreen:3256) was a
+**frequency artifact**, corrected by a per-render dep-diff on the `officeAnimationState` memo under
+3-agent live churn:
+
+- **TRUE DRIVER = `officeTriggerState`** identity-churn: **1256/60s (~50×/cascade)** poisoning the
+  memo, while `state.agents` stayed FLAT (0). Not gym.
+- **Gym-cooldown = BYSTANDER**: instrumented counters show its effect runs ~51/sec with **ZERO state
+  changes** (updater always bails). It's the most-frequently-CALLED setter (~50×/cascade), so it
+  dominated the error-stack sample even though it never commits. Both the stack interceptor and the
+  offset dev-sourcemaps were fooled by this.
+- **UNRESOLVED PARADOX (verbatim):** no `setOfficeTriggerState` caller fires 50×/cascade — onEvent
+  fired 2×/30s; the only passive-effect setter (reconcile) is `[state.agents]`-gated and state.agents
+  is flat — yet officeTriggerState identity changes ~50×/cascade. Mechanism not resolved.
+- **Attempted fix FAILED:** value-stabilizing officeTriggerState (`useMemo(…, [JSON.stringify(…)])`)
+  did NOT break the cascade — re-measured **27/60s** under active churn (roster 19). Reverted.
+
+**Three diagnosis-method lessons (for the follow-up sprint):**
+1. Sequential-window A/B under intermittent churn produced **THREE false positives** (TrailSystem,
+   gym, officeTriggerState — every "0" was a churn lull; every active-churn window ~24-46/60s).
+   Measure under CONSTANT verified churn ONLY.
+2. Error-stack frequency ≠ causation — call-frequency sampling bias toward the most-CALLED setter.
+3. Dev-build artifacts (React StrictMode double-invokes, offset sourcemaps, dev error overlay)
+   systematically polluted diagnosis.
+
+**Recommended follow-up path (dedicated stabilization sprint, NOT Phase 2):**
+1. Reproduce on a **PRODUCTION build** (`npm run build && npm start` on :3100) — removes
+   StrictMode/dev-overlay confounds; may change behavior entirely.
+2. **First structural candidate: re-enable the RAF `livePatchQueue` batching in the office view**
+   (arch finding above) — batching the synchronous dispatch storm plausibly breaks ANY dep's cascade
+   regardless of which one churns.
+3. `store.tsx` value-diffing bail-outs (#2/#3 amplifier).
+4. React Profiler over monkey-patched consoles.
+
+**Shipped state:** gym-cooldown hardening KEPT (correct); officeTriggerState stabilization + TrailSystem
+guard REVERTED. T12 = precisely-documented **P2 OPEN debt** (non-fatal: canvas renders, roster exact,
+animations verified every round).
