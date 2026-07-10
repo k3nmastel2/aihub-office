@@ -3,7 +3,16 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 1 — aihub provider + live flat roster (code complete, gates green, awaiting QA)
+## Current phase: 2 — Ephemeral lifecycle choreography
+
+**PHASE 1 CLOSED 2026-07-10** on the "everything green except documented T12 debt" bar.
+Official shipped-state record (QA round 4, live churn, roster 19): auto-connect ~2s zero-click ·
+roster tracked 19→18 EXACTLY against /api/live through real agent turnover · animations alive ·
+0 Context Lost · 236/236 requests clean · **T12 update-depth loop remains: 103 errors/3min,
+burst-then-sustained (one burst correlated with an HMR reconnect failure — further weight for the
+production-build-first follow-up); dev error overlay fragment visibly leaks into the office view
+(dev-only cosmetic)**. Debt dossier: `T12-STATIC-SWEEP.md` (containment section). Evidence:
+`evidence/phase1/10-close-r4-connected.png`, `11-close-r4-plus3min.png`. Closing commit `157c974`.
 
 ### Phase 1 status
 
@@ -41,10 +50,13 @@ allowlists end-to-end. (Did NOT exercise `/api/live/nudge` or `/api/live/dismiss
 1-line reset is handed off (editing that out-of-repo config was permission-denied for this agent;
 see triage T6). T7 verified PASS by code trace (see triage T7).
 
-**Exact next step:** Phase 1 QA pass (Claude-with-Chrome). Manual check: Settings → Gateway →
-select **AI Hub** → URL `http://127.0.0.1:3000` → Connect → floor **AI Hub Live** → real hub
-sessions/subagents appear as avatars ≤3s after spawn, type at desks while active, despawn when
-the hub drops them.
+**Exact next step:** Phase 2 — ephemeral lifecycle choreography (plan of record, Phase 2):
+door spawn for aihub agents (`pickSpawnPoint` branch, RetroOffice3D.tsx ~909 — A* walk-in comes
+free), `leavingByAgentId` prop + opacity fade on despawn (skip walk for <5s flash subagents; cap
+~4 simultaneous walk-outs), janitor `cleaningCues` when a session's pod empties. Verify: fixture
+spawn/despawn + Chrome screenshots at door → mid-walk → seated → fade. NOTE for Phase 2 workers:
+console update-depth errors under churn are DOCUMENTED T12 DEBT — do not chase them; do not
+re-triage the dev-overlay leak.
 
 ### Key decisions (Phase 1)
 
@@ -119,8 +131,8 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | Phase | State | Evidence |
 |---|---|---|
 | 0 — Fork boots | done | evidence/phase0 |
-| 1 — aihub provider + flat roster | code complete (gates green) — awaiting QA | tests/unit/aihub |
-| 2 — Ephemeral lifecycle | pending | — |
+| 1 — aihub provider + flat roster | **done** (closed with documented T12 debt, commit 157c974) | tests/unit/aihub · evidence/phase1 |
+| 2 — Ephemeral lifecycle | in progress | — |
 | 3 — Hierarchy pods | pending | — |
 | 4 — Badges + tasks | pending | — |
 | 5 — Services + errands | pending | — |
