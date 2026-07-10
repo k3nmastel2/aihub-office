@@ -63,6 +63,14 @@ OfficeScreen.tsx:2826-2883 wires `queueLivePatch: (id,patch) => dispatch(updateA
 3. **OfficeScreen animationNowMs in render body (#11) + disabled RAF batcher** — two independent defenses absent exactly where the bug lives.
 Then, if bursts persist: store.tsx reducer value-diffing (#2/#3), summary-refresh coalescing + timestamp quantization (#5/#6 — the Date.now() derivation lives in OUR aihub snapshot.ts and is freely fixable).
 
+## RUNTIME CONFIRMATION (t12-fresh-eyes, 2026-07-10) — supersedes the falsification order
+Root cause proven by runtime stack capture + in-page sourcemap decoding (console's "OfficeScreen.tsx:3143" was a GENERATED line mapping cleanly to source :3256):
+- **Looping setState: `setGymCooldownUntilByAgentId` (OfficeScreen.tsx:3256), effect 3254-3294, deps `[immediateGymHoldByAgentId, state.agents]`.**
+- **Factor A (structural):** `animationNowMs = Date.now()` (line 3184) sits in the `officeAnimationState` memo deps (3185-3231) → memo rebuilds EVERY render → `skillGymHoldByAgentId` (3219) → `immediateGymHoldByAgentId` (3246-3252) new identity every render → effect re-runs every render. (= HIGH #11 in the table above.)
+- **Factor B (trigger, needs churn):** a flipped gym hold makes the updater write `now + GYM_WORKOUT_LATCH_MS` from a render-scoped `Date.now()` (3271) — the ~1ms-advancing value defeats the content bailout (3286-3291) each nested re-render → cascade to React's 50-update cap.
+- Measured: ~0.2/sec steady (poll-gated, gaps 3.6-7.6s), fixed ~105-commit burst per error = one capped runaway per trigger. `setClockTick` (1656) appeared once as a benign bystander. ONE dominant loop — TrailSystem/#17-20/#25 are perf smells, not this bug.
+- Fix: stabilize/quantize `animationNowMs` (kill Factor A) + harden effect 3254 (pure updater — move the `prevImmediateGymHoldRef` mutation out of the state updater; stable `now` for the latch so the bailout works — kill Factor B).
+
 ## Backlog candidates regardless of T12 outcome
 - Re-enable RAF livePatchQueue in office view (arch finding)
 - Quantize `hubUpdatedAtMs` in aihub snapshot.ts (stable values for unchanged ages)
