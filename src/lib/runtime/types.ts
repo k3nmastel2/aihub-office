@@ -35,7 +35,8 @@ export type RuntimeProviderId =
   | "demo"
   | "local"
   | "claw3d"
-  | "custom";
+  | "custom"
+  | "aihub";
 
 export type RuntimeProviderMetadata = {
   id: RuntimeProviderId;

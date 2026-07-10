@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AgentAvatarProfile } from "@/lib/avatars/profile";
+import type { AgentHubMetadata } from "@/lib/runtime/aihub/types";
 import {
   areTranscriptEntriesEqual,
   buildOutputLinesFromTranscriptEntries,
@@ -41,6 +42,9 @@ export type AgentStoreSeed = {
   sessionExecAsk?: "off" | "on-miss" | "always";
   toolCallingEnabled?: boolean;
   showThinkingTraces?: boolean;
+  // AI Hub extras (hierarchy, tasks, badges, nudge affordances). Carried through hydration
+  // via the seed spread; null/undefined for non-aihub providers.
+  hub?: AgentHubMetadata | null;
 };
 
 export type AgentState = AgentStoreSeed & {

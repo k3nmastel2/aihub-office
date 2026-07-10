@@ -15,6 +15,7 @@ import {
   type SummaryStatusSnapshot,
 } from "@/features/agents/state/runtimeEventBridge";
 import type { AgentStoreSeed } from "@/features/agents/state/store";
+import type { AgentHubMetadata } from "@/lib/runtime/aihub/types";
 
 type AgentsListResult = {
   defaultId: string;
@@ -24,6 +25,7 @@ type AgentsListResult = {
     id: string;
     name?: string;
     role?: string;
+    hub?: AgentHubMetadata | null;
     identity?: {
       name?: string;
       theme?: string;
@@ -279,6 +281,7 @@ export const deriveHydrateAgentFleetResult = (
       sessionExecHost: resolvedExecHost,
       sessionExecSecurity: resolvedExecSecurity,
       sessionExecAsk: resolvedExecAsk,
+      hub: agent.hub ?? null,
     };
   });
 

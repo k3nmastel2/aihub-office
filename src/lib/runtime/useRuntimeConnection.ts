@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { type GatewayConnectionState, useGatewayConnection } from "@/lib/gateway/GatewayClient";
+import { isLiveFeedRuntimeProvider } from "@/lib/runtime/aihub/provider";
 import { createRuntimeProvider } from "@/lib/runtime/createRuntimeProvider";
 import {
   hasRuntimeCapability,
@@ -29,6 +30,19 @@ export const useRuntimeConnection = (
     [gateway.activeAdapterType, gateway.client, gateway.gatewayUrl]
   );
   const capabilities = provider.capabilities;
+
+  // Live-feed providers (AI Hub) poll their source and push synthetic events while
+  // connected. Keyed on provider identity + status so a reconnect or floor switch that
+  // recreates the provider cleanly stops the old feed and starts the new one.
+  useEffect(() => {
+    if (gateway.status !== "connected" || !isLiveFeedRuntimeProvider(provider)) {
+      return;
+    }
+    provider.startLiveFeed();
+    return () => {
+      provider.stopLiveFeed();
+    };
+  }, [provider, gateway.status]);
 
   return {
     ...gateway,

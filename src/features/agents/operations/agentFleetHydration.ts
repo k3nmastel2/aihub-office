@@ -13,6 +13,7 @@ import {
   type SummaryStatusSnapshot,
 } from "@/features/agents/state/runtimeEventBridge";
 import type { AgentStoreSeed } from "@/features/agents/state/store";
+import type { AgentHubMetadata } from "@/lib/runtime/aihub/types";
 import { deriveHydrateAgentFleetResult } from "@/features/agents/operations/agentFleetHydrationDerivation";
 
 type GatewayClientLike = {
@@ -27,6 +28,8 @@ type AgentsListResult = {
   agents: Array<{
     id: string;
     name?: string;
+    role?: string;
+    hub?: AgentHubMetadata | null;
     identity?: {
       name?: string;
       theme?: string;

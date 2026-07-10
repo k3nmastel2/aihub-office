@@ -1,3 +1,4 @@
+import { AihubRuntimeProvider } from "@/lib/runtime/aihub/provider";
 import { CustomRuntimeProvider } from "@/lib/runtime/custom/provider";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { DemoRuntimeProvider } from "@/lib/runtime/demo/provider";
@@ -33,6 +34,8 @@ export const createRuntimeProvider = (
         runtimeName: "Custom Runtime",
         routeProfile: "custom",
       });
+    case "aihub":
+      return new AihubRuntimeProvider(client, runtimeUrl);
     case "demo":
       return new DemoRuntimeProvider(client);
     case "hermes":

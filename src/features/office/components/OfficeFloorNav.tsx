@@ -31,6 +31,7 @@ const PROVIDER_LABEL: Record<FloorProvider, string> = {
   custom: "Custom",
   local: "Local",
   claw3d: "Claw3D",
+  aihub: "AI Hub",
 };
 
 const renderFloorButton = (params: {

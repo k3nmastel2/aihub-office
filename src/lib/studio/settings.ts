@@ -37,7 +37,8 @@ export type StudioGatewayAdapterType =
   | "demo"
   | "local"
   | "claw3d"
-  | "custom";
+  | "custom"
+  | "aihub";
 export const STUDIO_GATEWAY_ADAPTER_TYPES = [
   "openclaw",
   "hermes",
@@ -45,6 +46,7 @@ export const STUDIO_GATEWAY_ADAPTER_TYPES = [
   "local",
   "claw3d",
   "custom",
+  "aihub",
 ] as const;
 
 export type StudioGatewayProfile = {
@@ -285,6 +287,7 @@ const DEFAULT_OPENCLAW_GATEWAY_URL = "ws://localhost:18789";
 const DEFAULT_LOCAL_ADAPTER_GATEWAY_URL = "ws://localhost:18789";
 const DEFAULT_LOCAL_RUNTIME_URL = "http://localhost:7770";
 const DEFAULT_CLAW3D_RUNTIME_URL = "http://localhost:3000/api/runtime/custom";
+const DEFAULT_AIHUB_RUNTIME_URL = "http://127.0.0.1:3000";
 const DEFAULT_CUSTOM_RUNTIME_URL = "http://localhost:7770";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -818,6 +821,7 @@ const normalizeGatewayProfiles = (
     "local",
     "claw3d",
     "custom",
+    "aihub",
   ] as const) {
     const normalized = normalizeGatewayProfile(value[adapterType]);
     if (normalized) {
@@ -885,6 +889,7 @@ const mergeGatewayProfiles = (
     "local",
     "claw3d",
     "custom",
+    "aihub",
   ] as const) {
     const profilePatch = patch[adapterType];
     if (profilePatch === undefined) continue;
@@ -941,7 +946,8 @@ const normalizeGatewayAdapterType = (
     adapterType === "openclaw" ||
     adapterType === "local" ||
     adapterType === "claw3d" ||
-    adapterType === "custom"
+    adapterType === "custom" ||
+    adapterType === "aihub"
   ) {
     return adapterType;
   }
@@ -968,6 +974,8 @@ export const resolveDefaultStudioGatewayProfile = (
   }
 
   switch (adapterType) {
+    case "aihub":
+      return { url: DEFAULT_AIHUB_RUNTIME_URL, token: "" };
     case "claw3d":
       return { url: DEFAULT_CLAW3D_RUNTIME_URL, token: "" };
     case "local":

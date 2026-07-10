@@ -38,6 +38,7 @@ const gatewayDebugLog = (message: string, details?: Record<string, unknown>) => 
   console.info("[gateway-client]", message);
 };
 import { probeCustomRuntime } from "@/lib/runtime/custom/http";
+import { probeAihubRuntime } from "@/lib/runtime/aihub/http";
 
 export type ReqFrame = {
   type: "req";
@@ -187,7 +188,8 @@ const normalizeLocalGatewayDefaults = (value: unknown): StudioGatewaySettings | 
     raw.adapterType === "openclaw" ||
     raw.adapterType === "local" ||
     raw.adapterType === "claw3d" ||
-    raw.adapterType === "custom"
+    raw.adapterType === "custom" ||
+    raw.adapterType === "aihub"
       ? raw.adapterType
       : "openclaw";
   const profiles = normalizeGatewayProfilesPublic(raw.profiles);
@@ -210,7 +212,7 @@ const normalizeGatewayProfilesPublic = (
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Partial<Record<StudioGatewayAdapterType, StudioGatewayProfilePublic>>;
   const profiles: Partial<Record<StudioGatewayAdapterType, { url: string; token: string }>> = {};
-  for (const adapterType of ["openclaw", "hermes", "demo", "local", "claw3d", "custom"] as const) {
+  for (const adapterType of ["openclaw", "hermes", "demo", "local", "claw3d", "custom", "aihub"] as const) {
     const profile = normalizeGatewayProfilePublic(raw[adapterType]);
     if (profile) {
       profiles[adapterType] = profile;
@@ -266,6 +268,12 @@ export class GatewayClient {
     return () => {
       this.eventHandlers.delete(handler);
     };
+  }
+
+  // Push a locally-synthesized frame to all subscribers. Used by HTTP live-feed providers
+  // (e.g. AI Hub) that never open a WebSocket but still drive the event pipeline.
+  emitSyntheticEvent(event: EventFrame) {
+    this.eventHandlers.forEach((handler) => handler(event));
   }
 
   onGap(handler: GapHandler) {
@@ -892,12 +900,17 @@ export const useGatewayConnection = (
     if (
       selectedAdapterType === "custom" ||
       selectedAdapterType === "local" ||
-      selectedAdapterType === "claw3d"
+      selectedAdapterType === "claw3d" ||
+      selectedAdapterType === "aihub"
     ) {
       setStatus("connecting");
       try {
         await settingsCoordinator.flushPending();
-        await probeCustomRuntime(gatewayUrl);
+        if (selectedAdapterType === "aihub") {
+          await probeAihubRuntime(gatewayUrl);
+        } else {
+          await probeCustomRuntime(gatewayUrl);
+        }
         setDetectedAdapterType(selectedAdapterType);
         setStatus("connected");
         setConnectErrorCode(null);
@@ -1190,7 +1203,8 @@ export const useGatewayConnection = (
     if (
       selectedAdapterType === "custom" ||
       selectedAdapterType === "local" ||
-      selectedAdapterType === "claw3d"
+      selectedAdapterType === "claw3d" ||
+      selectedAdapterType === "aihub"
     ) {
       setStatus("disconnected");
       return;
@@ -1213,6 +1227,7 @@ export const useGatewayConnection = (
     (selectedAdapterType === "custom" ||
       selectedAdapterType === "local" ||
       selectedAdapterType === "claw3d" ||
+      selectedAdapterType === "aihub" ||
       !hasLastKnownGoodState ||
       !(gatewayUrl ?? "").trim() ||
       (selectedAdapterType === "openclaw" && !(token ?? "").trim()) ||

@@ -3,7 +3,59 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 0 — Fork boots
+## Current phase: 1 — aihub provider + live flat roster (code complete, gates green, awaiting QA)
+
+### Phase 1 status
+
+Implemented a first-class **`aihub` RuntimeProvider** that drives the office from the hub's
+`/api/live`. Data-only slice (no visual/seating/RetroOffice3D changes).
+
+**Done:**
+- New namespace `src/lib/runtime/aihub/`: `types.ts`, `snapshot.ts` (pure normalize +
+  `buildAgentSeeds` depth-first ordering + status-consistent preview/status/history builders +
+  `sanitizeTaskTextForOffice`), `diff.ts` (pure snapshot→`EventFrame[]`), `http.ts` (proxy
+  client), `provider.ts` (`AihubRuntimeProvider` + `LiveFeedRuntimeProvider` interface/guard,
+  3s `startLiveFeed`/`stopLiveFeed`, cached-snapshot `call()`).
+- Server proxy `src/app/api/runtime/aihub/route.ts` (host allowlist 127.0.0.1/localhost, exact
+  pathname allowlist `/api/live`,`/api/live/nudge`,`/api/live/dismiss`; default `AIHUB_URL`).
+- Registration edits across upstream files (see FORK.md) + `GatewayClient.emitSyntheticEvent()`
+  + start/stop feed wired in `useRuntimeConnection.ts`.
+- `AgentStoreSeed.hub` field; `hub` threaded through the seed derivation whitelist so it reaches
+  the store (see "Key decisions" below).
+- Fixtures + vitest: `tests/fixtures/aihub/live-real.json` (captured real payload),
+  `tests/unit/aihub/{snapshot,diff}.test.ts` (23 tests, all green).
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 23/23 green · full
+`tests/unit/` unchanged (the 5 remaining failures — `agentChatPanel-controls` ×2,
+`useGatewayConnection` ×2, `agentFleetHydration` ×1 — are PRE-EXISTING, verified failing on a
+clean stash of `main` before this work; officeFloors ×3 were caused by the new floor and are
+now updated).
+
+**Exact next step:** Phase 1 QA pass (Claude-with-Chrome). Manual check: Settings → Gateway →
+select **AI Hub** → URL `http://127.0.0.1:3000` → Connect → floor **AI Hub Live** → real hub
+sessions/subagents appear as avatars ≤3s after spawn, type at desks while active, despawn when
+the hub drops them.
+
+### Key decisions (Phase 1)
+
+- **`hub` metadata flow:** the seed derivation (`agentFleetHydrationDerivation.ts`) is a hard
+  field whitelist, NOT a spread — extra fields on `agents.list` entries do not survive to the
+  seed. To make `AgentStoreSeed.hub` real (and usable by phases 2–7), added `hub?` to the
+  derivation's agent type + one `hub: agent.hub ?? null` line to the seed map. `createRuntimeAgentState`
+  already spreads `...seed`, so it flows to `AgentState` from there.
+- **Status transitions via presence, not just lifecycle frames:** `resolveLifecyclePatch`
+  ignores a lifecycle-`end` frame whose `runId` ≠ the agent's current `runId`, and an
+  infer-originated running state carries `runId=inferred-<id>` (≠ our `hub-run-<id>`). So the
+  diff emits a `presence` frame on membership OR run-state change (not on tool-only deltas),
+  routing status through the robust `presence→re-hydrate→inferRunningFromAgentSessions` path
+  that our status-consistent preview tails were built for. Lifecycle/tool frames are still
+  emitted for immediacy (working/idle latch + speech bubbles). Minor, documented deviation from
+  the plan's "presence only on membership change".
+- **Done nodes:** kept as idle avatars while the hub still lists them; despawn happens naturally
+  when the hub drops the node (membership change → presence → roster replace). Proactive
+  fade/walk-out is Phase 2.
+
+## Prior phase: 0 — Fork boots
 
 ## Status
 
@@ -43,8 +95,8 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 
 | Phase | State | Evidence |
 |---|---|---|
-| 0 — Fork boots | in progress | — |
-| 1 — aihub provider + flat roster | pending | — |
+| 0 — Fork boots | done | evidence/phase0 |
+| 1 — aihub provider + flat roster | code complete (gates green) — awaiting QA | tests/unit/aihub |
 | 2 — Ephemeral lifecycle | pending | — |
 | 3 — Hierarchy pods | pending | — |
 | 4 — Badges + tasks | pending | — |
