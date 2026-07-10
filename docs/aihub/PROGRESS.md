@@ -31,7 +31,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 
 | ID | Pri | Symptom | State |
 |---|---|---|---|
-| T1 | P1 | `THREE.WebGLRenderer: Context Lost` ×4 during initial mount only; self-recovered, no recurrence in 10s window. Suspect dev-mode double-mount / multiple WebGL canvases (main scene + thumbnail). Root-cause before long-running sessions; fix or downgrade to P2 with rationale. | investigating |
+| T1 | P1 | `THREE.WebGLRenderer: Context Lost` ×4 at mount. ROOT CAUSE (Opus, HIGH confidence): `canvasResetKey` memo (RetroOffice3D.tsx:2637) included `gatewayStatus`/`agents.length`/`officeCenterSignal`, so every connect step and roster change remounted `<Canvas>` (R3F `forceContextLoss()` on unmount) — real prod perf bug, catastrophic for ephemeral-subagent churn. FIX: key narrowed to `remoteOfficeEnabled` only; typecheck green. Verify: zero Context Lost on reload + agents no longer flash on roster change. | fixed, verifying |
 | T2 | P2 | THREE.Clock deprecation warning (upstream three.js) | open |
 | T3 | P2 | opentype.js GPOS/GSUB debug spam (font shaping, cosmetic) | open |
 | T4 | P2 | Demo gateway activity stream sparse (fine for smoke; tune if richer demo needed) | open |

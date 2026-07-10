@@ -23,6 +23,7 @@
 |---|---|---|
 | `.env` (untracked) | `PORT=3100` | 0 |
 | `README.md` | attribution + fork banner at top | 0 |
+| `src/features/retro-office/RetroOffice3D.tsx` | `canvasResetKey` narrowed to `remoteOfficeEnabled` only (T1 fix — was force-losing the WebGL context on every gateway-status/roster change) | 0/T1 |
 | _(pending)_ `src/lib/runtime/types.ts` | +`"aihub"` in `RuntimeProviderId` | 1 |
 | _(pending)_ `src/lib/runtime/createRuntimeProvider.ts` | +`case "aihub"` | 1 |
 | _(pending)_ `src/lib/gateway/GatewayClient.ts` | +`emitSyntheticEvent()`, +aihub in adapter lists + HTTP-connect branch | 1 |

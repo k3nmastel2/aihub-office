@@ -2634,15 +2634,14 @@ export function RetroOffice3D({
     () => ({ pos: CAM_POS, target: cameraTarget, zoom: cameraZoom }),
     [CAM_POS, cameraTarget, cameraZoom]
   );
+  // Only a local<->remote district swap genuinely needs a fresh scene root.
+  // gatewayStatus/agents.length/officeCenterSignal used to be part of this key,
+  // which force-lost the WebGL context and reloaded every asset on each connect
+  // step and roster change (T1, docs/aihub/PROGRESS.md); agents render reactively
+  // and officeCenterSignal is handled by the camera effect, so neither needs a remount.
   const canvasResetKey = useMemo(
-    () =>
-      [
-        remoteOfficeEnabled ? "remote" : "local",
-        gatewayStatus ?? "unknown",
-        String(agents.length),
-        String(officeCenterSignal),
-      ].join(":"),
-    [agents.length, gatewayStatus, officeCenterSignal, remoteOfficeEnabled],
+    () => (remoteOfficeEnabled ? "remote" : "local"),
+    [remoteOfficeEnabled],
   );
   // New Idea 7: heatmap mode.
   const [heatmapMode, setHeatmapMode] = useState(false);
