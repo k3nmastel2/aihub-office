@@ -72,11 +72,42 @@ officeFloors + studioSettings tests updated for the intentional new defaults.
 updated) · full `tests/unit/` → only the 5 known pre-existing failures
 (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1), zero new.
 
-**Not yet captured live:** the Chrome multi-team pass (pods + rugs, leads at anchors,
-members clustered, crowd reaching desks) — pending a driver window from the orchestrator.
-NOTE: stale persisted furniture on the `aihub-live` namespace
-(`openclaw-office-furniture-v9:aihub-live`) would override the new preset — clear that
-localStorage key + reload if pods don't appear on first live load.
+**Live Chrome pass (2026-07-11, sole-driver window, roster 29):**
+- **Demo-floor retirement VERIFIED:** a fresh cache-ignoring reload landed on **AI Hub
+  Live · CONNECTED · roster 29, zero clicks** — no lobby, no demo gateway. Fallback is
+  sane. (evidence `phase3-01..03-aihub-pods.png`)
+- **aihub layout renders:** the 6-pod bullpen + kept rooms (server, gym, QA, art/meeting,
+  kitchen, east lounge with ping-pong) all present.
+- **Pod rug renders + pipeline proven end-to-end:** a tinted rug draws under pod 0
+  (Claude Code's session). The rug only renders when `deskAssignmentByDeskUid[leadDeskUid]`
+  is populated — the SAME prop the tick consumes — so this proves the OfficeScreen seating
+  memo → prop → renderer path works live.
+- **Seating math correct (observe.js):** 29 nodes → 2 session groups → pod 0 = Claude Code
+  (lead) + 24 members (4 seated: lead + 3, 21 overflow roam), pod 1 = Hermes (lead at
+  anchor). Matches the allocator exactly.
+- **Stale-furniture caveat CONFIRMED + handled:** `openclaw-office-furniture-v9:aihub-live`
+  held old `office_*` furniture that hid the pods; cleared it + reloaded → pods appear.
+- Console: only the documented dev-only HMR websocket timeout (T9). Zero update-depth /
+  React / uncaught errors from Phase 3 code.
+
+**OPEN FINDING — idle agents don't visibly occupy pod desks (escalated to team-lead).**
+The brief's premise ("useAgentTick already routes desk-assigned agents") holds only for
+**working** agents: `RetroOffice3D` seats an assigned agent at its desk only when
+`effectiveStatus === "working"` (`:1383`, and the new-agent branch targets `deskPos` only
+when working `:1656/:1690`); idle agents roam (upstream's social wander). The current live
+roster is **all-idle (0 working)** — even the hub-`active` session leads render office-idle
+— so the pods aren't populated with seated avatars; the crowd roams/clusters. Seating is
+COMPUTED + DELIVERED correctly (rug proves the prop); the visual realization is gated by
+upstream working-state routing, which the brief says NOT to touch. Recommendation options
+handed to the team-lead: (a) accept as realistic (working = at desk, idle = roaming/social,
+preserving upstream charm); or (b) approve a small aihub-gated tick change so idle
+desk-assigned agents also sit at (or hover near) their pod — makes teams visibly seated,
+but requires lifting the "don't touch useAgentTick" constraint. Awaiting the decision
+before any tick change.
+
+Carry-forward (Phase 2 QA gate): the >4-simultaneous-done zero-ghost count — this pass had
+3 done nodes (seatable filter excludes them; observe.js `done:3`), no visible ghosts; the
+>4-done live count still carries forward.
 
 ---
 
