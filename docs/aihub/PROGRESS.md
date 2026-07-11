@@ -100,13 +100,21 @@ screenshots (durable PNGs unobtainable — same WebGL-canvas limitation as Phase
   walk every frame. **Fix: jitter the door spawn (±80×60px).** Also memoized the merged errand
   hold maps to cut re-plan churn. typecheck green; tests/unit/aihub 134/134.
 
-**CARRY-FORWARD (QA gate):** the post-jitter-fix VISUAL walk-advance (avatar physically traversing
-to the server room) was NOT captured live — the environment hit heavy T17/T21 connection drops +
-a renderer freeze after ~6 rebuild/reload cycles in one long session, blocking the final
-instrumented read. The routing/path are proven and the fix is well-reasoned (Opus root-cause + the
-`__errWalk` symptom pinpointing the zero-jitter door collision), but the physical traversal needs a
-confirming pass on a stable connection (analogous to the Phase-2 walk-OUT-animation carry-forward).
-Prod rebuilt with all fixes and left UP.
+**POST-FIX VISUAL — frozen bug CONFIRMED RESOLVED (partial).** On the final jitter-fix build, the
+errand agents are **no longer pinned** at the exact (820,660) door coordinate: across a before/after
+pair (6s apart) the errand cluster's on-screen position changed and the agents rendered **spread
+out** (jitter working — no longer stacked on one cell), whereas pre-fix `__errWalk` held from=
+(820,660) exactly for 20s+. So the specific freeze (zero-jitter door collision deadlock) is fixed.
+
+**CARRY-FORWARD (QA gate):** a clean "single errand agent completes the full traversal and stands at
+the server racks" hero shot was NOT captured — two environmental factors: (1) heavy T17/T21
+connection drops + one renderer freeze after ~6 rebuild/reload cycles in one long session, and (2)
+"main"'s ailab hammer used SHORT-LIVED cycling agents (rack-hammer-2/4/5/6), each respawning at the
+door before completing the ~10-15s cross-floor walk, so the door area shows perpetual spawn churn
+rather than one agent arriving. A LONG-LIVED errand agent (one sustained 60-90s service use) on a
+stable connection should show the full walk-in cleanly. The routing/path are proven (`__errWalk`),
+the freeze is fixed (agents now move + spread), and the fix is root-caused (Opus). Recommend the QA
+gate confirm the full traversal with a single long-lived errand agent. Prod rebuilt + left UP.
 
 ---
 
