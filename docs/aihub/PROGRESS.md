@@ -14,6 +14,38 @@ gates — bounded chase assigned), T29 (skip onboarding on hub launch), hub-side
 Three.js instances" warning (hub backlog, unrelated to fork). office.js retirement decision
 after 1-2 weeks of soak. SVG tree stays regardless.
 
+---
+
+## PHASE 9 — INTERIOR REMODEL + WORLD INTEGRITY (in progress, 2026-07-11)
+
+Ken's SOAK FEEDBACK #1 (9 items, verbatim at the bottom of this doc) grouped into sub-slices.
+Sole implementer: `phase9-impl`. Investigation findings (3 read-only subagents):
+- **Containment root cause (item 7):** `buildNavGrid` blocks only the CANVAS perimeter (1800×1800),
+  but the building floor is 1800×720 (`LOCAL_OFFICE_CANVAS_*`), so the whole strip y>720 is
+  walkable "outside." N/E/W are already contained by the canvas edge; **only the SOUTH escapes.**
+  All roam/idle/errand movement already routes through `astar` (walls block; empty path = stay
+  put), so the ONLY wall-clip is the ping-pong slot, which snaps to the raw slot coord even when
+  it lands behind the QA-lab east wall (x1534) — that IS Ken's "plays through the wall."
+- **Doors (item 9):** `DoorModel` (`objects/primitives.tsx`) ALREADY swings open/closed on agent
+  proximity (driven by `renderAgentsRef`); existing room doors already animate. Need a swinging
+  entrance door + live confirmation.
+- **Camera (item 8):** the main camera is drei `OrbitControls` (not custom); aihub-gated
+  LEFT→PAN gives drag-to-pan without touching zoom/presets/select.
+- **Tests:** only `tests/unit/aihub/seating.test.ts` (6 pods × 4 desks, structural) is coupled;
+  no test hardcodes uids/coords. Must hand-sync `cameraZones.ts` library anchor + `libraryRoute.ts`
+  LIBRARY_TARGET when the library moves.
+
+### Phase 9c — CAMERA DRAG-PAN — LANDED (typecheck + tests/unit/aihub 210/210 green; live pending)
+`OrbitControls` `mouseButtons.LEFT` + `enableRotate` aihub-gated: on the aihub floor left-drag PANs
+(Space+left orbits); other floors keep upstream left-drag-rotate. Zoom (wheel), RIGHT-pan, the
+per-zone camera-preset buttons (own `cameraPresetRef`), and agent click-select (R3F `onClick` fires
+only on non-drag clicks) untouched. FORK.md row added.
+
+### Phase 9a — LAYOUT REMODEL — in progress
+### Phase 9b — WORLD INTEGRITY (containment + entrance + doors) — in progress
+
+---
+
 ### Phase 8 status (2026-07-11)
 - **Hub link-out LANDED**: `~/.ai-hub/server/static/js/live.js` now renders a "🏙 3D office"
   button beside the tree/office toggle → `window.open("http://localhost:3100/office",

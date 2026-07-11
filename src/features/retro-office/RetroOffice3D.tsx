@@ -5514,9 +5514,18 @@ export function RetroOffice3D({
               minZoom={25}
               maxZoom={120}
               maxPolarAngle={Math.PI / 2.2}
-              enableRotate={!spaceDown}
+              // aihub floor: left-drag pans the view directly (Ken's soak feedback #8); hold
+              // Space + left-drag to orbit. Other floors keep the upstream left-drag-rotate.
+              enableRotate={layoutPreset === "aihub" ? spaceDown : !spaceDown}
               mouseButtons={{
-                LEFT: spaceDown ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+                LEFT:
+                  layoutPreset === "aihub"
+                    ? spaceDown
+                      ? THREE.MOUSE.ROTATE
+                      : THREE.MOUSE.PAN
+                    : spaceDown
+                      ? THREE.MOUSE.PAN
+                      : THREE.MOUSE.ROTATE,
                 MIDDLE: THREE.MOUSE.DOLLY,
                 RIGHT: THREE.MOUSE.PAN,
               }}
