@@ -7,7 +7,10 @@ import {
   type ErrandAgentInput,
   type ServiceErrandState,
 } from "@/lib/aihub/serviceErrands";
+import { mapServiceIdToObject } from "@/lib/aihub/serviceMap";
+import { normalizeHubSnapshot } from "@/lib/runtime/aihub/snapshot";
 import type { HubLiveServiceLink } from "@/lib/runtime/aihub/types";
+import liveServicesFixture from "../../fixtures/aihub/live-services.json";
 
 const agent = (over: Partial<ErrandAgentInput> = {}): ErrandAgentInput => ({
   agentId: "a1",
@@ -209,5 +212,42 @@ describe("buildServiceErrandHoldMaps", () => {
     expect(maps.phoneBooth).toEqual({});
     expect(maps.library).toEqual({});
     expect(maps.qaDevice).toEqual({});
+  });
+});
+
+describe("real /api/live fixture (services + service_links present)", () => {
+  const snapshot = normalizeHubSnapshot(liveServicesFixture);
+
+  it("normalizes the live services + service_links slice", () => {
+    expect(snapshot.services.length).toBeGreaterThan(0);
+    expect(snapshot.services[0].id).toBe("hub");
+    expect(snapshot.services[0].status).toBe("online");
+    expect(snapshot.serviceLinks.length).toBeGreaterThan(0);
+    expect(snapshot.serviceLinks[0].target).toBe("hub");
+    expect(snapshot.serviceLinks[0].active).toBe(true);
+  });
+
+  it("does not manufacture a walk-to errand from the glow-only hub service", () => {
+    // The captured payload only has the `hub` service (→ ATM, glow only) used via `Bash`
+    // (no service mapping) — so even confirmed across two polls, no agent should errand.
+    expect(mapServiceIdToObject("hub")).toBe("atm");
+    const agents: ErrandAgentInput[] = snapshot.serviceLinks.map((link) => ({
+      agentId: link.source,
+      currentTool: link.tool,
+      working: true,
+    }));
+    const first = computeServiceErrands({
+      agents,
+      serviceLinks: snapshot.serviceLinks,
+      previous: {},
+      now: 0,
+    });
+    const second = computeServiceErrands({
+      agents,
+      serviceLinks: snapshot.serviceLinks,
+      previous: first.nextState,
+      now: 3_000,
+    });
+    expect(second.errandsByAgentId).toEqual({});
   });
 });
