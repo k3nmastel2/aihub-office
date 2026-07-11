@@ -54,6 +54,7 @@ export const AgentModel = memo(function AgentModel({
   subtitle,
   status,
   color,
+  accentColor = null,
   appearance,
   agentsRef,
   agentLookupRef,
@@ -1160,7 +1161,8 @@ export const AgentModel = memo(function AgentModel({
           </mesh>
           <mesh position={[-0.392, 0, 0]}>
             <planeGeometry args={[0.028, subtitleText ? 0.34 : 0.24]} />
-            <meshBasicMaterial color={color} />
+            {/* Phase 7a: per-tool accent strip (harness identity); per-agent color otherwise. */}
+            <meshBasicMaterial color={accentColor ?? color} />
           </mesh>
           <mesh position={[0.355, subtitleText ? 0.05 : 0, 0]}>
             <circleGeometry args={[0.052, 14]} />

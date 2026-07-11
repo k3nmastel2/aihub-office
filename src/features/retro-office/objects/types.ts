@@ -33,6 +33,8 @@ export type AgentModelProps = {
   subtitle?: string | null;
   status: OfficeAgent["status"];
   color: string;
+  // Phase 7a: per-tool accent for the nameplate strip; falls back to `color` when absent.
+  accentColor?: string | null;
   appearance?: AgentAvatarProfile | null;
   agentsRef: RefObject<RenderAgent[]>;
   agentLookupRef?: RefObject<Map<string, RenderAgent>>;

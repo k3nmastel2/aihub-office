@@ -5,6 +5,45 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 7 — Polish / parity + behavior simulation
 
+### Phase 7a — ROLE IDENTITY (role wardrobe + per-tool accent) — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
+
+Agents stop looking interchangeable: each derives a **role** from its live fields and wears a
+distinct silhouette, and each carries its **harness accent** on the nameplate.
+
+**Done (pure logic in `src/lib/aihub/roles.ts`, unit-tested; render wiring additive/aihub-gated):**
+- **`src/lib/aihub/roles.ts` (new, pure):** ports the old office's `ROLE_RULES`/`inferRole`
+  (`~/.ai-hub/server/static/js/office.js`) → `AgentRole` (16 archetypes: director/builder/
+  researcher/tester/miner/librarian/artist/scribe/explorer/reviewer/guard/planner/debugger/
+  optimizer/cleaner/messenger/generic). `scanRole`/`inferRole` (session-kind + orchestrator
+  personas → director; persona > name > task; the dormant generative-casting fallback dropped).
+  `resolveToolAccent(tool)` → claude #D97757 / codex #10a37f / gemini #4285F4 / hermes #a855f7
+  (keyed like Phase 6 `TOOL_LABELS`; null for unknown → renderer falls back to the per-agent
+  color). `ROLE_WARDROBE` maps each role onto claw3d's avatar vocabulary (hair style, top
+  style+color, glasses/headset/hat/backpack) — overrides silhouette fields, **preserves** the
+  per-agent skin/hair-color/bottom/shoe so same-role agents still differ. `applyRoleWardrobe`
+  (pure) + `memoizedRoleWardrobe` (WeakMap by base profile → **referentially stable** so the
+  T12-sensitive `appearance` prop never churns per frame).
+- **`OfficeScreen.mapAgentToOffice` (aihub-gated):** `inferRole({name, persona: agent.role,
+  task: hub.task, kind: hub.kind})` → `memoizedRoleWardrobe(baseProfile, role)` for the
+  `avatarProfile`; `resolveToolAccent(hub.tool)` → new `accentColor`. Non-aihub actors keep their
+  stored profile + null accent.
+- **Renderer (additive):** `OfficeAgent`/`AgentModelProps` gain optional `accentColor`; the
+  nameplate left strip paints `accentColor ?? color`. Per-agent `color` still drives the status
+  dot, pulse ring, and pod-rug tint (unchanged) — tool identity lives ONLY on the strip, matching
+  office.js's "tool identity moves off the body onto the name pill." Threaded via the same
+  `"accentColor" in agent` guard as the Phase-4 chips.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 173/173 (21 new
+`roles.test.ts`: scanRole rule-order, inferRole session/orchestrator/persona-vs-name/placeholder/
+task-fallback/generic, tool accents, wardrobe silhouette-distinctness + base-identity preservation
++ no-mutation, memo referential stability) · full `tests/unit/` → only the 5 known pre-existing
+failures (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1), zero new.
+
+**Next 7a step:** live Chrome self-verify (roles read as distinct silhouettes; per-tool accent
+strips visible on nameplates across claude/codex/gemini/hermes). Then 7b (honest idle behaviors).
+
+---
+
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all
 four interaction behaviors on prod with hard evidence: the agent card (correct live fields across
 session lead / subagent / hermes), affordance gating (composer only on nudgeable Claude sessions

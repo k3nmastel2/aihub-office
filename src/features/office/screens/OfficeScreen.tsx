@@ -219,6 +219,11 @@ import {
   resolveAgentBadge,
 } from "@/lib/aihub/badges";
 import {
+  inferRole,
+  memoizedRoleWardrobe,
+  resolveToolAccent,
+} from "@/lib/aihub/roles";
+import {
   buildAihubTaskCardsByStatus,
   resolveAihubBoardError,
   shouldFetchRemoteGatewayTasks,
@@ -604,6 +609,22 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
   const { badge, detail: badgeDetail } = resolveAgentBadge(agent.hub);
   const { task: taskChip, bg: bgChip } = computeNameplateChips(agent.hub);
   const deskStackCount = computeDeskStackCount(agent.hub);
+  // Phase 7a: role identity → a distinct wardrobe silhouette + a per-tool nameplate accent.
+  // aihub agents only (agent.hub present); non-aihub actors keep their stored profile + color.
+  // `memoizedRoleWardrobe` keeps the applied profile referentially stable (no `appearance`
+  // churn in the T12-sensitive render path).
+  const baseProfile = agent.avatarProfile ?? null;
+  const role = agent.hub
+    ? inferRole({
+        name: agent.name,
+        persona: agent.role ?? null,
+        task: agent.hub.task ?? null,
+        kind: agent.hub.kind,
+      })
+    : null;
+  const avatarProfile =
+    role && baseProfile ? memoizedRoleWardrobe(baseProfile, role) : baseProfile;
+  const accentColor = resolveToolAccent(agent.hub?.tool ?? null);
   if (agent.status === "error") {
     return {
       id: agent.agentId,
@@ -612,7 +633,8 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
       status: "error",
       color: stringToColor(agent.agentId),
       item: getDeterministicItem(agent.agentId),
-      avatarProfile: agent.avatarProfile ?? null,
+      avatarProfile,
+      accentColor,
       badge,
       badgeDetail,
       taskChip,
@@ -628,7 +650,8 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
     status: isWorking ? "working" : "idle",
     color: stringToColor(agent.agentId),
     item: getDeterministicItem(agent.agentId),
-    avatarProfile: agent.avatarProfile ?? null,
+    avatarProfile,
+    accentColor,
     badge,
     badgeDetail,
     taskChip,

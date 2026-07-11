@@ -16,6 +16,9 @@ export type OfficeAgent = {
   taskChip?: string | null; // "remaining/total" task progress, e.g. "8/10"
   bgChip?: string | null; // running background-task count, e.g. "1"
   deskStackCount?: number; // desk paper-stack height (outstanding tasks, capped)
+  // Phase 7a: per-tool accent (harness identity) painted on the nameplate strip. Null on
+  // non-aihub actors / unknown tools → the renderer falls back to the per-agent color.
+  accentColor?: string | null;
 };
 
 export type JanitorTool = "broom" | "vacuum" | "floor_scrubber";
