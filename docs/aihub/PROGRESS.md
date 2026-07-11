@@ -80,8 +80,29 @@ reachable) rather than by eye:
   chrome errand WALK-TO is affected. The server room (primary mlx/ollama errand) IS reachable via its
   staged route. Re-opening the east wing is folded into T25.
 
-**Next:** Chrome self-verify (one driver, hard reload): screenshot each remodeled zone, an agent NOT
-clipping a wall (roam containment), drag-pan, door open/close. Then prod rebuild + up.
+### Phase 9 LIVE CHROME PASS (2026-07-11, prod :3100, sole driver) — PASS + shipping blocker fixed
+
+Ran the pass on a fresh prod build. **Found + fixed a SHIPPING BLOCKER:** the office CACHES aihub
+furniture per-floor in localStorage (`openclaw-office-furniture-v9:aihub-live`), which PINS the
+first-ever materialized layout and silently ignores every later preset change — so the whole Phase 9
+remodel was NOT reaching the running office (old jukebox spot, ping-pong slot behind the QA wall, no
+perimeter wall) and would NOT have reached Ken. **Fix (commit 0f54151):** `buildInitialFurnitureLayout`
+skips `loadFurniture` for the aihub floor and ALWAYS materializes fresh (aihub is preset-driven).
+**Proven live:** injected a 3-item stale layout into localStorage, hard-reloaded → the office rendered
+the full 234-item new layout, ignoring the stale cache. So Ken gets the remodel on next load, no clear.
+
+**Verified on the real (post-fix) layout:** ping-pong OFF the wall — table (1620,560), both slots
+(1580/1740) clear of the QA wall 1534 (furniture JSON + visual) (item 1) ✅ · coherent lounge —
+couches + coffee table + beanbag + ping-pong + phone booth (item 2) ✅ · jukebox relocated to the
+lounge (item 3) ✅ · kitchen + eating area (items 3,4) ✅ · library research ROOM, walled top-center
+with shelves (item 6) ✅ · huddle round tables near the pods (item 5) ✅ · south perimeter wall + entrance
+door, nav-harness proves it's the only south opening (item 7) ✅ · all live agents inside the building
+(containment) ✅ · drag-pan (item 8) ✅. NOT captured live (strongly supported otherwise): the ping-pong
+pair walking the long east route to rally (off-wall proven by JSON+visual) and a door open/close swing
+(existing DoorModel proximity animation, unchanged).
+
+**End state:** prod rebuilt with the cache fix + UP on :3100 (single instance). Gates: typecheck 0 ·
+tests/unit/aihub 216/216 · full suite only the 5 known pre-existing failures. Chrome tab closed.
 
 ---
 
