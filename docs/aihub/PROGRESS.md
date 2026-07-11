@@ -3,7 +3,18 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 5 — Services as world objects + errands
+## Current phase: 6 — Interactions (nudge / dismiss / read-only history)
+
+**PHASE 5 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA confirmed: SERVICES HUD
+(live-updating, correct zones + in-use-by attribution) · HEALTH GLOW (bundle-source-verified
+ring component + live capture) · ERRAND functionality (hero-walker movement confirmed between
+frames, HUD attribution, full active→winding→idle lifecycle tracked against /api/live). Two
+camera-caught bugs were fixed during self-verify: identity-churn hold-map re-plan (memoized)
+and the PHASE-2 LATENT door-cell collision deadlock (zero-jitter spawn → d===0 bump case;
+fixed with spawn jitter). Prod console: ~1230 requests all clean; T22's WASM error NOT observed
+this window (intermittent?). Visual gaps → tickets, not carry-forwards: T23 (paper-stack
+occlusion in dense pods, 2nd miss — investigate) and T24 (camera-jump presets + nameplate
+declutter, Phase 7). One bare uncaught-promise noted for the T22 check. Commits cfdbfde→dfbf7b9.
 
 ### Phase 5 status — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
 
@@ -718,7 +729,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
-| 6 — Interactions | pending | — |
+| 6 — Interactions | in progress | — |
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |
 
