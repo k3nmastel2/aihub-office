@@ -225,6 +225,16 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |
 
+## Vision guidance (Ken, 2026-07-11)
+
+The office is a **SIM of real agent activity**, never decorative wandering: (1) focus-area huddles —
+same phase/workflow/task/team = work together at a shared pod/desk, areas adjust for collaborating
+groups; (2) honest idle behaviors — lounge, ping pong (≥2 idle), gym; (3) activity-mapped zones —
+library/research area for research/recall/memory work; (4) chat bubbles ONLY for actual
+agent-to-agent collaboration (SendMessage/teammate exchanges in hub activity), not random bumps.
+Mapped: Phase 3 = workflow/group clustering within session pods · Phase 5 = library/research zone ·
+Phase 7 = behavior simulation (idle rotation, huddles, collaboration bubbles).
+
 ## Session notes
 
 - 2026-07-10: Phase 0 started. Fork/clone/env/install done inline by orchestrator (Fable).
