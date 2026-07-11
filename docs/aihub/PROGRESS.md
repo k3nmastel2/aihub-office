@@ -70,7 +70,22 @@ console, wrap `window.fetch` so `/api/runtime/aihub` snapshot responses get `nod
 then renders the badge. `window.__unblock()` restores the original fetch. (Full snippet was run
 live this session.)
 
-### Phase 4 status — IMPLEMENTED; PROD-verified (chips + blocked badge + pods); paper-stack render defect (P1) + Kanban skill-gate (finding) open
+### Phase 4 FAST-FOLLOW LANDED (2026-07-11) — paper stacks FIXED + Kanban gate BYPASSED on aihub
+- **Desk paper-stack render defect FIXED.** Root cause pinned via a temp bright marker on a
+  PROD build + a `[aihub-paper-stack] deskItems=24 assigned=18 stacks=1` console probe: the
+  data was always correct (only 1 of the 18 desk-assigned agents currently has open tasks —
+  the rest are taskless subagents), and the single stack was invisible because the old
+  `PAPER_OFFSET_X=-22` placed it OFF the desk edge onto the floor. Fix: on-desk offset
+  `(+42,-5)` matching the dressing row (keyboard +30,-5 / mouse +52,-5), larger sheets
+  (0.28×0.34, 5×0.055 tall), brighter paper. Verified on PROD: the marker + cream stack sit
+  squarely on the desk surface (`DESK_SURFACE_Y=0.61` confirmed correct). Instrumentation
+  stripped (`DEBUG_PAPER_STACK=false`, kept as an off toggle).
+- **Kanban skill-gate BYPASSED on the aihub floor.** `openKanbanBoard` (RetroOffice3D) now
+  skips the claw3d TASK-MANAGER install prompt when `layoutPreset==="aihub"` and opens the
+  immersive board directly (fed the read-only live hub-tasks source-switch). Additive, gated,
+  FORK.md logged. Other floors keep the upstream gate.
+
+### Phase 4 status — IMPLEMENTED; PROD-verified (chips + blocked badge + pods + desk stacks + Kanban gate); awaiting one QA gate
 
 The office now SHOWS each agent's work state. Four vertical pieces, all pure decision logic
 in `src/lib/aihub/` (unit-tested) with the coordinates/materials in the renderer:

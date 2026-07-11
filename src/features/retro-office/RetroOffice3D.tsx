@@ -4508,7 +4508,11 @@ export function RetroOffice3D({
   const openKanbanBoard = useCallback(
     (item: FurnitureItem | null) => {
       if (!item || item.type !== "kanban_board") return;
-      if (!taskManagerEnabled) {
+      // On the aihub floor the board is fed a read-only live mirror of every agent's real
+      // hub tasks (the Phase 4 source-switch), so task visibility is core to the sim and the
+      // claw3d TASK-MANAGER skill gate is irrelevant here — open the board directly. Other
+      // floors keep the upstream skill-install gate.
+      if (!taskManagerEnabled && layoutPreset !== "aihub") {
         setActiveKanbanUid(null);
         onKanbanInteract?.();
         return;
@@ -4534,6 +4538,7 @@ export function RetroOffice3D({
       onMonitorSelect,
       onKanbanInteract,
       taskManagerEnabled,
+      layoutPreset,
     ],
   );
 
