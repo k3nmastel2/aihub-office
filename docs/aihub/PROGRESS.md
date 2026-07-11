@@ -253,6 +253,14 @@ QA gated Phase 7 PASS-WITH-ISSUES (roles/accents + LOD + 4/6 zone buttons + ping
   idle crowd near the pod bumping/slowing one walker en route — tied to the pre-existing idle-crowd
   clustering follow-up); recommend QA re-confirm at re-check (non-blocking). Both fixes in a clean prod
   rebuild UP on :3100. Evidence: `docs/aihub/evidence/phase7/`.
+- **P2 BONUS re-verify (thin fleet, 2 idle) — root cause refined + PARKED.** With the fleet swept to 2
+  idle agents (dismiss-me + phase1-provider), the retry fix DID get an agent to the table (dismiss-me
+  walked to + stood at its ping-pong position) — but no partner across from it. Mechanism pinned:
+  **"hub idle" ≠ "stably idle".** phase1-provider carried open tasks (a "7/24" chip), so it flipped to
+  effectiveStatus=working (seat/errand) and the tick's work branch CLEARED its rally mid-session,
+  leaving dismiss-me alone. Sustained 2-agent rallies need the scheduler to pair only STABLY-idle
+  agents. **Parked polish (future fix):** filter the idle pool to agents with no pending/in_progress
+  tasks AND no active service_link before pairing, so a partner can't be yanked to work mid-rally.
 
 ---
 
