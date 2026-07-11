@@ -3,7 +3,15 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 7 — Polish / parity + behavior simulation
+## Current phase: 8 — Hub link-out + soak (FINAL)
+
+**PHASE 7 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → P1 fixed → closed).** The sim landed:
+16-archetype role wardrobes + per-tool accents (source+live verified) · honest idle rotation
+(ping-pong pairing live-proven walk-to-table; rally retry-driver landed, QA re-confirm rides the
+Phase 8 pass; gym parked on T25) · collaboration bubbles on REAL SendMessage traffic only (bump
+chatter suppressed; twice live-corroborated) · huddles payload-ready (awaiting hub restart) ·
+nameplate LOD + per-zone camera buttons (Server Room P1 = bad anchor → fixed+verified; T24
+closed) · PodRug uniform tint · 47.5fps @ 48 agents on prod. Commits 6404574→76f3b5d.
 
 ### Phase 7a — ROLE IDENTITY (role wardrobe + per-tool accent) — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
 
@@ -1077,8 +1085,8 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
 | 6 — Interactions | **ACCEPTED** (live-verified: card fields + gating × 3 agent types, nudge server-side-confirmed, dismiss full-e2e; QA gate next) | tests/unit/aihub/agentCard · evidence/phase6 |
-| 7 — Polish / parity + behavior sim | in progress | — |
-| 8 — Hub link-out + retire office.js | pending | — |
+| 7 — Polish / parity + behavior sim | **done** (closed 2026-07-11) | tests/unit/aihub · evidence/phase7 |
+| 8 — Hub link-out + soak | in progress (office.js retirement = post-soak) | — |
 
 ## Vision guidance (Ken, 2026-07-11)
 
