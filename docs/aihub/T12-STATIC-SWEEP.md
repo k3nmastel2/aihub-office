@@ -202,9 +202,16 @@ and if ever addressed, the RAF `livePatchQueue` re-enable (arch finding, OfficeS
 highest-leverage structural cleanup. The dev-build console noise + dev-overlay leak are expected artifacts;
 Phase 3+ should verify any suspected update-depth regression on a **prod build** before triaging.
 
-**Separate observation (NOT T12, flagged for Phase 3).** On a long-lived tab the 3s live-feed
-`setInterval` (`provider.ts` startLiveFeed) stopped after ~2.5 min while the UI still read CONNECTED —
-a transient `stopLiveFeed` with no restart (the `useRuntimeConnection` effect keyed on `[provider, status]`;
-`stopLiveFeed` clears the interval, and if the re-run early-returns on a momentary non-`connected` status
-the feed stays dead). A reload cleared it. Feed-reliability item, independent of the update-depth loop;
-worth a guard that re-arms the feed whenever status is `connected` and `feedTimer === null`.
+**"Feed-stall" observation — RETRACTED (T18): it was a MEASUREMENT ARTIFACT, not a bug.**
+During the prod soaks the 3s live feed *appeared* to stop after ~2.5 min while the UI stayed CONNECTED.
+That signal was false. Root cause: my liveness probe used `performance.getEntriesByType('resource')`, and the
+browser's **Resource Timing buffer defaults to 250 entries**. A multi-minute office tab exceeds 250 total
+requests, the buffer fills, and the browser **silently stops recording new entries** — so `getEntriesByType`
+goes blind and reports "last poll N s ago" even though the feed keeps polling. A reload only "fixed" it by
+starting a fresh (empty) buffer. **Buffer-independent verification proved the feed never stalled:** (a) a
+`window.fetch` counter (independent of Resource Timing) incremented +4 in 12s — the exact 3s cadence — while
+the buffer sat pinned full at 250; (b) the dev server access log recorded continuous `POST /api/runtime/aihub`
+(179→212 across the same window). No `stopLiveFeed`-without-restart bug exists; the
+`startLiveFeed`/`useRuntimeConnection` lifecycle is sound. **T18 = NOT A BUG (closed, no code change).**
+Methodology lesson: never trust `getEntriesByType('resource')` for long-run liveness — it caps at 250 and
+goes silent; count via a `fetch`/XHR hook, `PerformanceObserver`, or server logs instead.
