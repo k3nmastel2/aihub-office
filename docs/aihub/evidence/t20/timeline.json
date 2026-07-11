@@ -1,0 +1,33 @@
+{
+  "test": "T20 cold-boot verification (dev build, HEAD 8e768e0, fresh isolated context)",
+  "criteria": {
+    "1_current_floor_never_lobby": "PASS",
+    "2_header_aihub_from_first_paint": "PASS",
+    "3_converges_connected": "PASS"
+  },
+  "boot_1_onboarding_shown": {
+    "note": "brand-new isolated context (first-run onboarding modal shown; office rendered + connected behind it)",
+    "change_points": [
+      { "t_ms": 150, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB DISCONNECTED", "hasLobby": false, "roster": "0" },
+      { "t_ms": 2283, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB CONNECTING", "hasLobby": false, "roster": "0" },
+      { "t_ms": 2658, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB CONNECTED", "hasLobby": false, "roster": "34" }
+    ],
+    "everLobby": false,
+    "everOpenclawChip": false,
+    "time_to_connected_ms": 2658
+  },
+  "boot_2_onboarding_done": {
+    "note": "onboarding flag set (matches Ken's real machine); no modal; clean visual = coldboot-connected.png",
+    "change_points": [
+      { "t_ms": 150, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB DISCONNECTED", "hasLobby": false, "roster": "0" },
+      { "t_ms": 1231, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB CONNECTING", "hasLobby": false, "roster": "0" },
+      { "t_ms": 1648, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB CONNECTED", "hasLobby": false, "roster": "0" },
+      { "t_ms": 1877, "currentFloor": "AI Hub Live", "adapterChip": "AIHUB CONNECTED", "hasLobby": false, "roster": "34" }
+    ],
+    "everLobby": false,
+    "everOpenclawChip": false,
+    "time_to_connected_ms": 1648,
+    "stable_through_ms": 60127
+  },
+  "t21_note": "Dev convergence to CONNECTED was ~1.6-2.7s with the /office route + aihub proxy pre-compiled. The ~40s QA figure on prod is therefore first-load/bundler/prod-cold-start overhead, NOT the connect logic (the aihub probe + first feed poll land in <3s). T21 should measure prod convergence with the route already warm to isolate any real connect-path latency."
+}

@@ -333,9 +333,18 @@ Held-then-dropped with evidence; no OfficeScreen touch.
 feed timing (provider.ts / useRuntimeConnection — phase1-provider's domain, off-limits to me), NOT
 caused by this work; scheduled after Phase 4.
 
-**T20 closes on three fixes** — FloorNav display + settings retired-adapter hardening + default-adapter
-— pending the final Chrome cold-boot verification (CURRENT FLOOR shows "AI Hub Live" throughout,
-header "AIHUB" from first paint, converges CONNECTED). T21 is the routed remainder.
+**T20 VERIFIED on dev (2026-07-11, HEAD 8e768e0, fresh isolated context ×2) — all three
+criteria PASS:** (1) CURRENT FLOOR = "AI Hub Live" from first paint (t=150ms), "Lobby" NEVER
+appeared (`everLobby:false`); (2) header chip = "AIHUB" from first paint, "OPENCLAW" NEVER
+appeared (`everOpenclawChip:false`); (3) converges CONNECTED + roster 34 at ~1.6-2.7s, stable
+through 60s. Evidence: `evidence/t20/{coldboot-connected.png, coldboot-with-onboarding.png,
+timeline.json}`. **T20 closes on the three fixes** (FloorNav display + settings retired-adapter
+hardening + default-adapter); a prod re-check rides phase4-badges' next prod rebuild.
+
+**T21 data point (from this run):** dev convergence to CONNECTED was ~1.6-2.7s with the `/office`
+route + aihub proxy PRE-COMPILED. So QA's ~40s prod figure is first-load/bundler/prod-cold-start
+overhead, NOT the connect path (the aihub probe + first feed land in <3s). T21 should measure prod
+convergence with the route already warm to isolate any real connect-path latency.
 
 ---
 
