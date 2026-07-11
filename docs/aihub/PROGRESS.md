@@ -3,7 +3,25 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 4 — Badges + tasks
+## Current phase: 5 — Services as world objects + errands
+
+**PHASE 4 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → P1 fixed → consolidated prod pass).**
+All four features prod-verified: nameplate chips (real task counts), blocked badge system
+(triangle+dot+tooltip detail; QA verified via the documented tab-only intercept, clean
+install/removal), desk paper stacks (off-desk offset root-caused + fixed), immersive Kanban
+opening directly with REAL /tasks (exact-match vs hub API). QA-P1 (false "Gateway is not
+connected" banner + uncaught promise) root-caused (aihub runtime lacks tasks.*; plain Errors
+slipped the GatewayResponseError classifier) and fixed aihub-gated (bdf1a47) — banner-gone +
+zero-uncaught verified on prod. Carry-forward for next gate: targeted single-agent paper-stack
+re-check. Commits 3d8bd57/21752f5/d4fa599/f2f6e0f/bdf1a47.
+
+**T20 CLOSED 2026-07-11** on three fixes (FloorNav never surfaces disabled floors ·
+retired-adapter lastKnownGood neutralization · default adapter → aihub), verified on dev
+(150ms timeline sampler ×2 cold boots: never-Lobby, never-OPENCLAW, CONNECTED ~2s warm) AND
+prod (labels correct from first paint). Bonus: cold boot no longer takes the floor-switch path,
+so the "black scene on switch" cannot occur in normal use. T21 (convergence timing — reframed:
+connect path <3s warm; the 40s was first-load compile) and T22 (prod CSP blocks WASM decoder,
+non-fatal) remain as routed follow-ups. **The standing :3100 build is PROD (daily-driver).**
 
 ### OPS LESSONS (2026-07-11, learned the hard way during the Phase 4 live pass)
 1. **Restart the dev server after commits that touch module-level constants or add new
@@ -586,7 +604,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
-| 5 — Services + errands | pending | — |
+| 5 — Services + errands | in progress | — |
 | 6 — Interactions | pending | — |
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |
