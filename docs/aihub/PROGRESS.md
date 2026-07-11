@@ -142,6 +142,36 @@ debug-toggle + screenshot; folded into the combined 7a-7d self-verify.
 **Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 210/210 (12 new: cameraZones
 6 + nameplateLod 6) · full `tests/unit/` → only the 5 known pre-existing failures, zero new.
 
+### Phase 7e — PERF + PARITY (assessment; live perf pass pending) + prod build UP
+
+**Prod build:** `npm run build` clean (exit 0), server UP on **:3100** (single instance, `/office` →
+200) with ALL of Phase 7. Hub live at :3000 (47 nodes: 44 claude, 2 hermes; 39 idle — ideal for the
+idle-behavior gate). Data path confirmed through the office's own aihub proxy.
+
+**Parity checklist vs office.js (honest assessment; code-confirmed unless noted "LIVE"):**
+- pods + recursive subagents seated with leads — ✅ (Phase 3)
+- role wardrobe ≥ current outfits — ✅ distinct silhouettes + per-tool accent (Phase 7a). **GAP:
+  HELD role PROPS** (office.js's hammer/book/brush held items) were NOT ported — wardrobe alone makes
+  roles distinct, so held props were scoped out as optional polish. Flagged for the parity gate.
+- door walk-in — ✅ (Phase 2) · done fade/walk-out — ✅ (Phase 2)
+- blocked ⚠ + detail on click — ✅ (Phase 4/6) · task + bg counts visible — ✅ (Phase 4)
+- current_tool bubble — ✅ tool frames (Phase 1) + collaboration bubbles (Phase 7c)
+- services mapped w/ health + ≥2 live errands — ✅ (Phase 5)
+- working nudge/dismiss — ✅ (Phase 6)
+- idle break-room lounging — ✅ ping-pong/gym/lounge (Phase 7b)
+- 30 agents ≥30fps — **LIVE** (AdaptiveDpr exists; 39 live agents available to measure)
+- survives hub restart — **LIVE** · day/night cycle intact — **LIVE** (additive changes only)
+
+**LIVE-pass finding (collaboration bubbles):** the hub's SendMessage activity entries carry an EMPTY
+`detail`, so `resolveCollaborationBubble` fires the bubble (SendMessage detected) but shows a plain
+"💬" rather than "💬 → recipient" — the recipient arrow depends on the hub populating SendMessage
+detail (a hub-side enhancement). Code is correct + forward-compatible (falls back to "💬").
+
+**Remaining (the visual gate):** combined live Chrome self-verify (7a distinct silhouettes + accent ·
+7b ping-pong/gym/lounge · 7c bubbles + no bump-chatter · 7d zone buttons + nameplate LOD + PodRug
+tint + T23 occlusion) + the 30-agent perf trace + hub-restart + day/night — driven on the sole-driver
+Chrome window (coordinated via "main"). Prod build left UP on :3100.
+
 ---
 
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all
