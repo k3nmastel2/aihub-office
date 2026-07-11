@@ -159,57 +159,142 @@ export const computeAihubSeating = (
       .flatMap((cluster) => cluster.sorted);
   };
 
-  // --- Sticky pod ownership: which session held each pod last poll (by any of its
-  // desks, lead first) — so a lead keeps its pod even after a lower-index pod frees. ---
-  const podForRoot = new Map<string, number>();
-  const usedPods = new Set<number>();
+  // --- Multi-pod capacity. A session's PRIMARY pod seats its lead at the anchor and up
+  // to 3 members; each ADDITIONAL adjacent pod adds seats at ALL of its desks (the extra
+  // pod's lead desk holds a member, since the session lead stays on the primary anchor). ---
+  const memberDeskCount = (podIndex: number) =>
+    podDesks.get(podIndex)!.memberDeskUids.length;
+  const totalDeskCount = (podIndex: number) => {
+    const pod = podDesks.get(podIndex)!;
+    return (pod.leadDeskUid ? 1 : 0) + pod.memberDeskUids.length;
+  };
+  const memberCountOf = (root: string) =>
+    Math.max(0, (groupMembers.get(root)?.length ?? 0) - 1);
+  const capacityOf = (podSet: number[]) => {
+    if (podSet.length === 0) return 0;
+    let capacity = memberDeskCount(podSet[0]);
+    for (let i = 1; i < podSet.length; i += 1) capacity += totalDeskCount(podSet[i]);
+    return capacity;
+  };
+
+  // --- Sticky pod ownership: which session held each pod last poll, and where each
+  // session's lead sat (its primary pod) — so a session keeps its pods and its lead
+  // never changes pod across polls. ---
+  const prevOwnerByPod = new Map<number, string>();
+  const prevPrimaryByRoot = new Map<string, number>();
   for (const podIndex of podOrder) {
     const pod = podDesks.get(podIndex)!;
     const desks = pod.leadDeskUid
       ? [pod.leadDeskUid, ...pod.memberDeskUids]
       : pod.memberDeskUids;
     for (const deskUid of desks) {
-      const prevOccupant = previousAssignment[deskUid];
-      if (!prevOccupant || !seatableIds.has(prevOccupant)) continue;
-      const owner = rootOf(prevOccupant);
-      if (!groupMembers.has(owner) || podForRoot.has(owner)) continue;
-      podForRoot.set(owner, podIndex);
-      usedPods.add(podIndex);
+      const prev = previousAssignment[deskUid];
+      if (!prev || !seatableIds.has(prev)) continue;
+      const owner = rootOf(prev);
+      if (!groupMembers.has(owner)) continue;
+      if (!prevOwnerByPod.has(podIndex)) prevOwnerByPod.set(podIndex, owner);
       break;
     }
+    const leadDesk = pod.leadDeskUid;
+    if (!leadDesk) continue;
+    const prevLead = previousAssignment[leadDesk];
+    if (!prevLead || !seatableIds.has(prevLead)) continue;
+    const leadOwner = rootOf(prevLead);
+    if (groupMembers.has(leadOwner) && !prevPrimaryByRoot.has(leadOwner)) {
+      prevPrimaryByRoot.set(leadOwner, podIndex);
+    }
   }
 
-  // --- New sessions claim free pods in first-seen order (leads never renumber) ---
-  const newRoots = [...groupMembers.keys()]
-    .filter((root) => !podForRoot.has(root))
-    .sort(byFirstSeen);
-  const freePods = podOrder.filter((podIndex) => !usedPods.has(podIndex));
-  let freeCursor = 0;
-  for (const root of newRoots) {
-    if (freeCursor >= freePods.length) break; // overflow session → roam
-    podForRoot.set(root, freePods[freeCursor]);
-    freeCursor += 1;
+  const rootsByFirstSeen = [...groupMembers.keys()].sort(byFirstSeen);
+  const usedPods = new Set<number>();
+  const podSetByRoot = new Map<string, number[]>();
+
+  // Pass 1 — reclaim previously-owned pods (primary first) up to what the session needs,
+  // so a shrinking session releases its excess pods and a growing one keeps its base.
+  for (const root of rootsByFirstSeen) {
+    const need = memberCountOf(root);
+    const claimed: number[] = [];
+    const prevPrimary = prevPrimaryByRoot.get(root);
+    if (prevPrimary != null && !usedPods.has(prevPrimary)) {
+      claimed.push(prevPrimary);
+      usedPods.add(prevPrimary);
+    }
+    const prevExtras = podOrder.filter(
+      (podIndex) => prevOwnerByPod.get(podIndex) === root && !usedPods.has(podIndex),
+    );
+    for (const podIndex of prevExtras) {
+      if (claimed.length > 0 && capacityOf(claimed) >= need) break;
+      claimed.push(podIndex);
+      usedPods.add(podIndex);
+    }
+    if (claimed.length > 0) podSetByRoot.set(root, claimed);
   }
 
-  // --- Seat each pod's session: lead at the anchor, subagents at member desks ---
-  for (const [root, podIndex] of podForRoot) {
-    const pod = podDesks.get(podIndex)!;
+  // Pass 2 — every present session gets at least a primary pod (first-seen order); when
+  // pods run out the remaining sessions roam.
+  for (const root of rootsByFirstSeen) {
+    if ((podSetByRoot.get(root)?.length ?? 0) > 0) continue;
+    const free = podOrder.find((podIndex) => !usedPods.has(podIndex));
+    if (free == null) continue; // overflow session → roam
+    podSetByRoot.set(root, [free]);
+    usedPods.add(free);
+  }
+
+  // Pass 3 — expand under-capacity sessions into the nearest free pod (adjacency by pod
+  // index), round-robin by first-seen so a big session grows without starving others.
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (const root of rootsByFirstSeen) {
+      const podSet = podSetByRoot.get(root);
+      if (!podSet || podSet.length === 0) continue;
+      if (capacityOf(podSet) >= memberCountOf(root)) continue;
+      let best: number | null = null;
+      let bestDist = Infinity;
+      for (const podIndex of podOrder) {
+        if (usedPods.has(podIndex)) continue;
+        const dist = Math.min(...podSet.map((p) => Math.abs(p - podIndex)));
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = podIndex;
+        }
+      }
+      if (best == null) continue;
+      podSet.push(best);
+      usedPods.add(best);
+      expanded = true;
+    }
+  }
+
+  // --- Seat each session across its pod set: lead at the primary anchor, members fill
+  // the primary's member desks then every desk of the additional pods. ---
+  for (const [root, podSet] of podSetByRoot) {
+    if (podSet.length === 0) continue;
+    const primaryPod = podDesks.get(podSet[0])!;
     const members = [...(groupMembers.get(root) ?? [])].sort(byFirstSeen);
 
-    // Anchor occupant: the session lead (the root) if seatable, else the earliest
-    // member so a lead-winding-down pod still keeps its team clustered.
+    // Anchor occupant: the session lead (the root) if seatable, else the earliest member
+    // so a lead-winding-down pod still keeps its team clustered.
     const anchorAgent = seatableIds.has(root) ? root : members[0];
     let pool = members.filter((id) => id !== anchorAgent);
-    if (pod.leadDeskUid && anchorAgent) {
-      result[pod.leadDeskUid] = anchorAgent;
+
+    const memberDesks: string[] = [...primaryPod.memberDeskUids];
+    if (primaryPod.leadDeskUid && anchorAgent) {
+      result[primaryPod.leadDeskUid] = anchorAgent;
     } else if (anchorAgent) {
       pool = [anchorAgent, ...pool];
+      if (primaryPod.leadDeskUid) memberDesks.unshift(primaryPod.leadDeskUid);
+    }
+    for (let i = 1; i < podSet.length; i += 1) {
+      const extra = podDesks.get(podSet[i])!;
+      if (extra.leadDeskUid) memberDesks.push(extra.leadDeskUid);
+      memberDesks.push(...extra.memberDeskUids);
     }
 
-    // Sticky pass: keep members who sat at this pod's member desks last poll.
-    const freeMemberDesks = [...pod.memberDeskUids];
+    // Sticky pass: keep members at the exact desks they held last poll.
+    const freeMemberDesks = [...memberDesks];
     const seated = new Set<string>();
-    for (const deskUid of pod.memberDeskUids) {
+    for (const deskUid of memberDesks) {
       const prev = previousAssignment[deskUid];
       if (!prev || seated.has(prev) || !pool.includes(prev)) continue;
       result[deskUid] = prev;
@@ -223,7 +308,7 @@ export const computeAihubSeating = (
     for (const member of orderByFocusThenFirstSeen(pool)) {
       if (seated.has(member)) continue;
       const deskUid = freeMemberDesks.shift();
-      if (!deskUid) break; // overflow member → roam near the pod
+      if (!deskUid) break; // overflow beyond the session's pods → roam
       result[deskUid] = member;
     }
   }

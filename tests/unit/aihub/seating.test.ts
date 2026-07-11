@@ -103,10 +103,10 @@ describe("computeAihubSeating — correctness", () => {
     expect(seating["p1-m1"]).toBe("b1");
   });
 
-  it("roams overflow members beyond the pod's member desks (no desk)", () => {
+  it("roams overflow members when the session's pods are all full", () => {
     const seating = computeAihubSeating(
       [lead("s1"), sub("a1", "s1"), sub("a2", "s1"), sub("a3", "s1"), sub("a4", "s1")],
-      makePods(2), // 3 member desks per pod
+      makePods(1), // only one pod (3 member desks) — nowhere to expand
       { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5 } },
     );
     // Lead + exactly 3 members seated; the 4th (latest) roams.
@@ -222,6 +222,127 @@ describe("computeAihubSeating — stability", () => {
     expect(after["p0-lead"]).toBe("s1");
     expect(after["p0-m1"]).toBe("a1"); // existing member unmoved
     expect(after["p0-m2"]).toBe("a2"); // new member fills the next free desk
+  });
+});
+
+describe("computeAihubSeating — multi-pod claiming", () => {
+  const subs = (parent: string, ...ids: string[]) =>
+    ids.map((id) => sub(id, parent));
+
+  it("claims a second pod when a session has more than 3 members", () => {
+    const seating = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4")],
+      makePods(3),
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5 } },
+    );
+    // Primary pod holds lead + 3; the 4th member spills into the adjacent pod.
+    expect(seating["p0-lead"]).toBe("s1");
+    expect(seating["p0-m1"]).toBe("a1");
+    expect(seating["p0-m2"]).toBe("a2");
+    expect(seating["p0-m3"]).toBe("a3");
+    expect(seating["p1-lead"]).toBe("a4");
+    expect(new Set(Object.values(seating)).size).toBe(5); // all seated, none roam
+  });
+
+  it("fills every desk of the additional pod before roaming", () => {
+    const seating = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4", "a5", "a6", "a7")],
+      makePods(3),
+      {
+        firstSeenByAgentId: {
+          s1: 1, a1: 2, a2: 3, a3: 4, a4: 5, a5: 6, a6: 7, a7: 8,
+        },
+      },
+    );
+    // 7 members: 3 in the primary, 4 across all desks of the second pod.
+    expect(seating["p1-lead"]).toBe("a4");
+    expect(seating["p1-m1"]).toBe("a5");
+    expect(seating["p1-m2"]).toBe("a6");
+    expect(seating["p1-m3"]).toBe("a7");
+    expect(new Set(Object.values(seating)).size).toBe(8);
+  });
+
+  it("does not renumber the lead or existing members when expanding to a new pod", () => {
+    const pods = makePods(3);
+    const before = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3")],
+      pods,
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4 } },
+    );
+    expect(before["p0-m3"]).toBe("a3");
+    const after = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4")],
+      pods,
+      {
+        firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5 },
+        previousAssignment: before,
+      },
+    );
+    // Lead + first three members are untouched; only the new member takes the new pod.
+    expect(after["p0-lead"]).toBe("s1");
+    expect(after["p0-m1"]).toBe("a1");
+    expect(after["p0-m2"]).toBe("a2");
+    expect(after["p0-m3"]).toBe("a3");
+    expect(after["p1-lead"]).toBe("a4");
+  });
+
+  it("is a fixed point for a multi-pod session when previous is fed back", () => {
+    const pods = makePods(3);
+    const firstSeenByAgentId = {
+      s1: 1, a1: 2, a2: 3, a3: 4, a4: 5, a5: 6,
+    };
+    const roster = [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4", "a5")];
+    const first = computeAihubSeating(roster, pods, { firstSeenByAgentId });
+    const second = computeAihubSeating(roster, pods, {
+      firstSeenByAgentId,
+      previousAssignment: first,
+    });
+    expect(second).toEqual(first);
+  });
+
+  it("gives every concurrent session a primary pod before a big one expands", () => {
+    const seating = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4"), lead("s2")],
+      makePods(4),
+      {
+        firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5, s2: 6 },
+      },
+    );
+    // s1 (5-member team) keeps its primary; s2 still gets its own pod; s1 expands into a
+    // free pod for the overflow member — nobody roams.
+    expect(seating["p0-lead"]).toBe("s1");
+    expect(Object.values(seating)).toContain("s2");
+    expect(new Set(Object.values(seating)).size).toBe(6); // s1, s2, a1..a4
+  });
+
+  it("releases an extra pod when a session shrinks, freeing it for others", () => {
+    const pods = makePods(3);
+    const before = computeAihubSeating(
+      [lead("s1"), ...subs("s1", "a1", "a2", "a3", "a4")],
+      pods,
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5 } },
+    );
+    expect(before["p1-lead"]).toBe("a4"); // s1 held a second pod
+    // a3/a4 finish; a new session s2 appears and should be able to take the freed pod.
+    const after = computeAihubSeating(
+      [
+        lead("s1"),
+        sub("a1", "s1"),
+        sub("a2", "s1"),
+        sub("a3", "s1", "done"),
+        sub("a4", "s1", "done"),
+        lead("s2"),
+      ],
+      pods,
+      {
+        firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4, a4: 5, s2: 6 },
+        previousAssignment: before,
+      },
+    );
+    // s1 shrank to 2 members (needs 1 pod); the freed pod lets s2 seat rather than roam.
+    expect(Object.values(after)).toContain("s2");
+    expect(valuesOf(after).has("a3")).toBe(false); // done → released
+    expect(valuesOf(after).has("a4")).toBe(false);
   });
 });
 

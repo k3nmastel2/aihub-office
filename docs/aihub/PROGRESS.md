@@ -67,10 +67,11 @@ lands on aihub-live instead of the lobby — verified: a disabled/missing floor 
 resolves to aihub-live, and the bail skips when already there so it can't self-loop.
 officeFloors + studioSettings tests updated for the intentional new defaults.
 
-**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/ tests/unit/officeFloors.test.ts` →
-78/78 green (20 seating incl. 5 focus-clustering; 22 lifecycle unchanged; 7 officeFloors
-updated) · full `tests/unit/` → only the 5 known pre-existing failures
-(agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1), zero new.
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 77/77 green
+(26 seating: correctness + stability + 5 focus-clustering + 6 multi-pod + real layout; 22
+lifecycle unchanged) · `officeFloors` 7/7 updated · full `tests/unit/` → only the 5 known
+pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2,
+agentFleetHydration ×1), zero new.
 
 **Live Chrome pass (2026-07-11, sole-driver window, roster 29):**
 - **Demo-floor retirement VERIFIED:** a fresh cache-ignoring reload landed on **AI Hub
@@ -90,20 +91,32 @@ updated) · full `tests/unit/` → only the 5 known pre-existing failures
 - Console: only the documented dev-only HMR websocket timeout (T9). Zero update-depth /
   React / uncaught errors from Phase 3 code.
 
-**OPEN FINDING — idle agents don't visibly occupy pod desks (escalated to team-lead).**
-The brief's premise ("useAgentTick already routes desk-assigned agents") holds only for
-**working** agents: `RetroOffice3D` seats an assigned agent at its desk only when
-`effectiveStatus === "working"` (`:1383`, and the new-agent branch targets `deskPos` only
-when working `:1656/:1690`); idle agents roam (upstream's social wander). The current live
-roster is **all-idle (0 working)** — even the hub-`active` session leads render office-idle
-— so the pods aren't populated with seated avatars; the crowd roams/clusters. Seating is
-COMPUTED + DELIVERED correctly (rug proves the prop); the visual realization is gated by
-upstream working-state routing, which the brief says NOT to touch. Recommendation options
-handed to the team-lead: (a) accept as realistic (working = at desk, idle = roaming/social,
-preserving upstream charm); or (b) approve a small aihub-gated tick change so idle
-desk-assigned agents also sit at (or hover near) their pod — makes teams visibly seated,
-but requires lifting the "don't touch useAgentTick" constraint. Awaiting the decision
-before any tick change.
+**Idle seating — DECIDED: option (a), INTENDED BEHAVIOR (Ken/team-lead 2026-07-11).**
+`RetroOffice3D` seats an assigned agent at its desk only when `effectiveStatus ===
+"working"` (`:1383`; the new-agent branch targets `deskPos` only when working `:1656/:1690`);
+idle agents roam (upstream's social wander). This is CORRECT for Ken's vision — desks are
+for WORKING agents; idle agents are socially off-duty. **Phase 7** gives idle agents an
+honest lounge/ping-pong/gym rotation. No tick change; the seating allocator + prop delivery
+are correct (the pod-0 rug proves the prop reaches the renderer), and working agents seat at
+their pod desks. (During my window the roster was all-idle so no seated avatars were visible;
+the QA gate confirms working-agent seating under active churn — if working agents still
+don't sit, THAT is a bug ticket, per the team-lead.)
+
+**Multi-pod claiming — LANDED (team-lead approved, allocator-only).** A session with more
+than 3 members now claims ADDITIONAL adjacent pods (nearest free pod by index), each extra
+pod adding seats at all 4 of its desks (the extra pod's lead desk holds a member — the
+session lead stays on the primary anchor). Pure `seating.ts` change, three passes: (1)
+reclaim previously-owned pods primary-first up to need (a shrinking session releases its
+excess), (2) guarantee every present session a primary pod before anyone expands (so
+concurrent sessions aren't starved), (3) round-robin expansion into nearest free pods. All
+stability guarantees preserved (deterministic, sticky, non-renumbering). This matters because
+10-27 subagents/session is Ken's normal mode; when those agents work they now have desks.
+Overflow beyond ALL pods still roams. Unit tests (6 new): expansion to a 2nd pod, full-fill
+before roaming, non-renumbering on expansion, multi-pod fixed-point stability, every
+concurrent session keeps a primary, shrink-releases-a-pod. NOTE (minor, backlog): a
+multi-pod session's extra-pod rug tints by a member's color (PodRug tints per-pod by its
+anchor occupant), so an expanded team reads as adjacent same-family shades rather than one
+tint — renderer-side polish for a later phase (PodRug would need session grouping).
 
 Carry-forward (Phase 2 QA gate): the >4-simultaneous-done zero-ghost count — this pass had
 3 done nodes (seatable filter excludes them; observe.js `done:3`), no visible ghosts; the
