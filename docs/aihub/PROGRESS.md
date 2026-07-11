@@ -46,13 +46,25 @@ useGatewayConnection ×2, agentFleetHydration ×1), zero new (one flaky
 `useAgentSettingsMutationController` timeout appeared once under parallel load, passes 22/22 in
 isolation — not from this work).
 
-**Live-verified (Chrome, :3100 AI Hub Live, real hub roster 19):** fade-out/despawn confirmed on a
-real done node — `f015ccaa-sub-explore` remains in the roster (status=done, hub retains done nodes
-long — NOT a short grace window) but its avatar + nameplate are now faded out and hidden (was a
-visible "Explore" nameplate pre-change). Console shows only the documented T12 update-depth error
-(27×, capped) — no new error types. Evidence: `evidence/phase2/00-baseline-connected.png`,
-`01-donenode-faded.png`. Door walk-in + fresh walk-out fade animation + flash fade-in-place pending
-a cued spawn/despawn from the orchestrator (requested).
+**Live-verified (Chrome, :3100 AI Hub Live, real hub):**
+- **Door walk-in** — on a fresh mount all 21 agents spawn in a tight cluster at the front door and
+  fan out to desks/roam (`evidence/phase2/04-doorspawn-burst.png` → `05-doorspawn-disperse.png`);
+  two orchestrator-spawned agents (walkin-test, flash-test) both appeared in the door region and
+  walked in (`02-doorwalkin-t0.png` → `03-doorwalkin-t4.png`). Gated to the aihub floor
+  (`activeAdapterType === "aihub"`) — demo random-spawn unchanged.
+- **Fade-out / despawn** — confirmed on a real done node: `f015ccaa-sub-explore` stayed in the
+  roster (status=done; the hub retains done nodes long — NOT a short grace window) while its avatar
+  **and** nameplate faded out and hid (`00-baseline-connected.png` had a visible "Explore"
+  nameplate; `01-donenode-faded.png` does not). Later the hub dropped it → clean prune.
+- Console: only the documented T12 update-depth error (27×, capped) — no new error types.
+
+**Not yet captured live (both non-blocking):** (1) the walk-OUT *animation* (a >5s done agent
+walking to the exit door while fading) — the orchestrator's test agents completed to hub status
+`idle`, not `done`, so the leaving path correctly didn't fire; it's proven by composition (the fade
+is verified, and the door A* routing is the same mechanism the verified walk-IN uses). (2) a live
+janitor cue — it needs a whole top-level session tree to leave, which won't happen mid-session; the
+cue logic is covered by unit tests. Flash fade-in-place is exercised on every reload (done nodes with
+lifetime < 5s fade in place before hiding).
 
 **Hub-payload note for the orchestrator:** subagents arrive with `session_id: null` and
 `group: null`; only the spawn links (`session → subagent`) tie them to their session. Session-tree
