@@ -45,6 +45,9 @@ export type AgentModelProps = {
   showSpeech?: boolean;
   speechText?: string | null;
   suppressSpeechBubble?: boolean;
+  // Phase 7c: on the aihub floor, suppress the random collision "bump chatter" bubble — bubbles
+  // should mean real agent-to-agent collaboration, not two avatars brushing past each other.
+  suppressBumpChatter?: boolean;
   // Phase 4 (aihub) work-state HUD.
   badge?: "blocked" | null;
   taskChip?: string | null;

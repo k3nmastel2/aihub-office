@@ -86,6 +86,37 @@ ping-pong∩gym exclusion / gym-percent bounds / de-dupe / signature stability) 
 **Next 7b step:** combined live Chrome self-verify with 7a (≥2 parked idle teammates → watch a
 pair walk to the table and rally; some idle agents at the gym; the rest lounging — not roaming).
 
+### Phase 7c — COLLABORATION BUBBLES + HUDDLE GROUPING — IMPLEMENTED (unit+typecheck green; bubbles pending live pass; huddles payload-ready/inert)
+
+Bubbles now mean real work, not random collisions; collaborating teams have a payload-ready
+gather-around-one-desk grouping.
+
+**Done (pure logic in `src/lib/aihub/collaboration.ts`, unit-tested):**
+- **Collaboration bubbles (LIVE):** `resolveCollaborationBubble(hub)` fires a "💬 → recipient"
+  bubble when an agent is messaging a teammate — `currentTool` is SendMessage, or a SendMessage
+  activity entry within 15s. `isSendMessageTool` normalizes casing/spacing; `extractRecipient` is
+  a tolerant parser (→/->/to/@/"name:" formats → recipient; else a plain "💬"). OfficeScreen maps
+  the roster through it (aihub-gated) → `aihubCollaborationBubbleByAgentId`; RetroOffice3D folds it
+  into the `AgentModel` speech expressions (priority over stale streaming text, below standup).
+- **Bump-chatter REMOVED on aihub:** `AgentModel` gains `suppressBumpChatter`
+  (`layoutPreset === "aihub"`) → the random collision bubble (`agent.bumpTalkUntil`) no longer
+  fires on the aihub floor, so a bubble now signals genuine collaboration.
+- **Huddle grouping (PAYLOAD-READY, inert):** `computeHuddles(agents)` groups working agents that
+  share a `hub.workflow` (fallback `group`), keeping only groups ≥2, anchored on the earliest-seen
+  member (the desk everyone would gather at) with a stable ring index. Pure + tested against
+  fixtures. INERT until the hub emits workflow/group on nodes (task #16) — SAME pattern as Phase
+  3's focus-clustering. The choreography wiring (gather members at the anchor desk via the existing
+  meeting/hold targets) is deferred to when the fields go live, so no untestable renderer churn
+  lands against inert data; Phase 3 seating already co-locates workflow members in one pod.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 198/198 (13 new
+`collaboration.test.ts`: SendMessage detection, recipient parsing, bubble freshness/fallback,
+huddle grouping/anchor/determinism/inert-when-empty) · full `tests/unit/` → only the 5 known
+pre-existing failures, zero new.
+
+**Next 7c step:** live pass — two teammates SendMessage-ing → "💬 → name" bubbles over the
+senders; confirm no random bubbles from passing avatars.
+
 ---
 
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all

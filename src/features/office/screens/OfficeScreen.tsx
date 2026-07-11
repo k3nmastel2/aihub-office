@@ -224,6 +224,7 @@ import {
   resolveToolAccent,
 } from "@/lib/aihub/roles";
 import { computeIdleBehaviors } from "@/lib/aihub/idleBehaviors";
+import { resolveCollaborationBubble } from "@/lib/aihub/collaboration";
 import {
   buildAihubTaskCardsByStatus,
   resolveAihubBoardError,
@@ -4741,6 +4742,18 @@ export function OfficeScreen({
     leavingByAgentId,
     leavingInPlaceByAgentId,
   ]);
+  // Phase 7c — collaboration bubbles: a speech bubble over any agent currently messaging a
+  // teammate (SendMessage tool), replacing the old random bump-chatter with honest
+  // agent-to-agent collaboration. Off the aihub floor this is empty.
+  const aihubCollaborationBubbleByAgentId = useMemo(() => {
+    if (activeAdapterType !== "aihub") return EMPTY_STRING_RECORD;
+    const map: Record<string, string> = {};
+    for (const agent of state.agents) {
+      const bubble = resolveCollaborationBubble(agent.hub);
+      if (bubble) map[agent.agentId] = bubble;
+    }
+    return Object.keys(map).length === 0 ? EMPTY_STRING_RECORD : map;
+  }, [state.agents, activeAdapterType]);
   // Agent id → display name, for the services HUD "in use by <name>" line.
   const aihubAgentNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -5166,6 +5179,7 @@ export function OfficeScreen({
           aihubServiceErrands={aihubServiceErrands}
           aihubIdleGymHoldByAgentId={aihubIdleBehaviors.gymHold}
           aihubPingPongPair={aihubIdleBehaviors.pingPongPair}
+          aihubCollaborationBubbleByAgentId={aihubCollaborationBubbleByAgentId}
           aihubServicesSnapshot={
             activeAdapterType === "aihub" ? aihubServicesSnapshot : null
           }

@@ -65,6 +65,7 @@ export const AgentModel = memo(function AgentModel({
   showSpeech = false,
   speechText = null,
   suppressSpeechBubble = false,
+  suppressBumpChatter = false,
   badge = null,
   taskChip = null,
   bgChip = null,
@@ -520,7 +521,8 @@ export const AgentModel = memo(function AgentModel({
         !isError &&
         agent.state === "standing" &&
         (agent.frame + blinkSeed * 11) % 320 < 42);
-    const bumpTalking = (agent.bumpTalkUntil ?? 0) > Date.now();
+    const bumpTalking =
+      !suppressBumpChatter && (agent.bumpTalkUntil ?? 0) > Date.now();
 
     if (speechBubbleRef.current) {
       const bubbleVisible =

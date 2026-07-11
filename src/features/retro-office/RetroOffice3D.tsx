@@ -2394,6 +2394,7 @@ export function RetroOffice3D({
   aihubServiceErrands = EMPTY_SERVICE_ERRAND_HOLD_MAPS,
   aihubIdleGymHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   aihubPingPongPair = null,
+  aihubCollaborationBubbleByAgentId = EMPTY_STRING_RECORD,
   aihubServicesSnapshot = null,
   standupMeeting = null,
   standupAutoOpenBoard = true,
@@ -2522,6 +2523,9 @@ export function RetroOffice3D({
   // ping-pong table. Both drive existing systems only. Empty/null off the aihub floor.
   aihubIdleGymHoldByAgentId?: Record<string, boolean>;
   aihubPingPongPair?: readonly [string, string] | null;
+  // aihub collaboration bubbles (Phase 7c): agentId → bubble text for agents actively messaging
+  // a teammate (SendMessage). Drives an honest speech bubble; empty off the aihub floor.
+  aihubCollaborationBubbleByAgentId?: Record<string, string>;
   // aihub live services slice (Phase 5): drives the world-object health glows. Null off-floor.
   aihubServicesSnapshot?: ServicesSnapshot | null;
   standupMeeting?: StandupMeeting | null;
@@ -6021,14 +6025,16 @@ export function RetroOffice3D({
                       : standupMeeting?.phase === "in_progress"
                         ? Boolean(standupSpeechTextByAgentId[agent.id])
                         : speechAgentIds.has(agent.id) ||
-                          Boolean(streamingTextByAgentId[agent.id])
+                          Boolean(streamingTextByAgentId[agent.id]) ||
+                          Boolean(aihubCollaborationBubbleByAgentId[agent.id])
                   }
                   speechText={
                     isJanitor
                       ? null
                       : standupMeeting?.phase === "in_progress"
                         ? (standupSpeechTextByAgentId[agent.id] ?? null)
-                        : (speechTextByAgentId[agent.id] ??
+                        : (aihubCollaborationBubbleByAgentId[agent.id] ??
+                            speechTextByAgentId[agent.id] ??
                             streamingTextByAgentId[agent.id] ??
                             null)
                   }
@@ -6036,6 +6042,7 @@ export function RetroOffice3D({
                     suppressSceneSpeechBubbles &&
                     standupMeeting?.currentSpeakerAgentId !== agent.id
                   }
+                  suppressBumpChatter={isJanitor ? false : layoutPreset === "aihub"}
                   badge={"badge" in agent ? (agent.badge ?? null) : null}
                   taskChip={"taskChip" in agent ? (agent.taskChip ?? null) : null}
                   bgChip={"bgChip" in agent ? (agent.bgChip ?? null) : null}
