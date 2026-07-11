@@ -299,10 +299,9 @@ export class AihubRuntimeProvider implements RuntimeProvider, LiveFeedRuntimePro
     if (!agentId) {
       throw new Error("AI Hub dismiss requires an agent id.");
     }
-    await this.ensureSnapshot();
-    const node = this.findAgentNode(agentId);
-    const sessionId = node?.sessionId ?? agentId;
-    await postHubDismiss(this.hubUrl, { sessionId });
+    // The hub dismisses by live NODE id (the agentId), not the resumable session_id — so a
+    // subagent (no session_id) hides just as cleanly as a top-level session.
+    await postHubDismiss(this.hubUrl, { nodeId: agentId });
     return { ok: true };
   }
 }

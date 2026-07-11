@@ -102,13 +102,15 @@ export async function postHubNudge(
 
 export async function postHubDismiss(
   hubUrl: string,
-  params: { sessionId: string }
+  params: { nodeId: string }
 ): Promise<unknown> {
+  // The hub hides by live NODE id (sessions AND subagents are filtered by `id`), not by the
+  // resumable session_id — /api/live/dismiss requires `{ id }` and 400s on anything else.
   return requestHub({
     hubUrl,
     pathname: "/api/live/dismiss",
     method: "POST",
-    body: { session_id: params.sessionId },
+    body: { id: params.nodeId },
   });
 }
 
