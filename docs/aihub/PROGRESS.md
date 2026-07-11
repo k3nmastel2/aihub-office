@@ -3,7 +3,24 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: Phase 3 — Hierarchy pods (implemented; live-verifying)
+## Current phase: 4 — Badges + tasks
+
+**PHASE 3 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA verified: zero-click landing
+on AI Hub Live with NO demo/lobby anywhere · pods + tinted rugs render (2 occupied as expected
+for a 2-session roster) · seating math matches (Hermes solo pod never starved; Claude Code's
+24-member session spans adjacent pods) · WORKING agents take pod desks under churn while idle
+agents roam socially (Ken's sim vision behavior) · **ghost carry-forward CLOSED: 4 done nodes,
+ZERO ghosts, verified by DOM search + manual nameplate cross-reference** (evidence
+40-45*.png). Commits 426e50a/048e2b4/47fb366/2ca2bc7.
+
+**Console-noise policy (T17 recurrence, decided 2026-07-11):** QA logged 141+ 502s / 15+ 404s /
+12+ Context Lost / 1 disconnect across its DEV-server session — all self-healed with roster
+integrity intact throughout. This is the classified T17 dev-harness pattern (dev proxy stall +
+multi-tab GPU eviction), NOT a fork regression; the T12 sprint's PROD measurements showed zero.
+POLICY: on the DEV server, self-healing connection bursts are documented noise (ignore in gates);
+the TRIPWIRE making it a real finding again: any occurrence on a PROD build, or any burst that
+fails to self-heal (dead canvas, roster desync). Ken's daily-driving target (Phase 8) is the prod
+build.
 
 ### Phase 3 status — IMPLEMENTED (unit-green; pending live Chrome pass)
 
@@ -339,8 +356,8 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 0 — Fork boots | done | evidence/phase0 |
 | 1 — aihub provider + flat roster | **done** (closed with documented T12 debt, commit 157c974) | tests/unit/aihub · evidence/phase1 |
 | 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
-| 3 — Hierarchy pods | implemented; live-verifying | tests/unit/aihub/seating · evidence/phase3 |
-| 4 — Badges + tasks | pending | — |
+| 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
+| 4 — Badges + tasks | in progress | — |
 | 5 — Services + errands | pending | — |
 | 6 — Interactions | pending | — |
 | 7 — Polish / parity | pending | — |
