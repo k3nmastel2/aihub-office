@@ -62,6 +62,9 @@ export type RenderAgent = SceneActor & {
   workoutStyle?: "run" | "lift" | "bike" | "box" | "row" | "stretch";
   janitorRouteIndex?: number;
   janitorPauseUntil?: number;
+  // Timestamp (ms) at which this agent began leaving. Drives the opacity fade-out
+  // in the renderer (aihub despawn choreography); undefined for present agents.
+  leavingSince?: number;
 };
 
 export type FurnitureItem = {

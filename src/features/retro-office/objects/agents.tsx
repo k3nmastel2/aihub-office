@@ -8,6 +8,7 @@ import {
   WALK_ANIM_SPEED,
 } from "@/features/retro-office/core/constants";
 import { toWorld } from "@/features/retro-office/core/geometry";
+import { AIHUB_LEAVING_FADE_MS } from "@/features/retro-office/objects/aihub/door";
 import type {
   JanitorActor,
   RenderAgent,
@@ -355,16 +356,29 @@ export const AgentModel = memo(function AgentModel({
       }
     }
 
-    if (awayBubbleRef.current) awayBubbleRef.current.visible = isAway;
-    if (bodyMatRef.current) bodyMatRef.current.opacity = isAway ? 0.45 : 1;
+    // Leaving agents (aihub despawn) ramp opacity to 0 over AIHUB_LEAVING_FADE_MS;
+    // this takes precedence over the "away" dim. Present agents render fully opaque.
+    const leavingSince = agent.leavingSince;
+    const leaving = typeof leavingSince === "number";
+    const bodyOpacity = leaving
+      ? Math.max(0, 1 - (Date.now() - leavingSince) / AIHUB_LEAVING_FADE_MS)
+      : isAway
+        ? 0.45
+        : 1;
+    const bodyTransparent = leaving || isAway;
+    if (awayBubbleRef.current) awayBubbleRef.current.visible = isAway && !leaving;
+    if (bodyMatRef.current) bodyMatRef.current.opacity = bodyOpacity;
     if (groupRef.current) {
+      // Once a leaving agent has fully faded, hide the whole avatar (body + nameplate)
+      // so hub-retained done nodes don't linger as a floating label at the door.
+      groupRef.current.visible = !leaving || bodyOpacity > 0.02;
       groupRef.current.traverse((child) => {
         if (
           child instanceof THREE.Mesh &&
           child.material instanceof THREE.MeshLambertMaterial
         ) {
-          child.material.transparent = isAway;
-          child.material.opacity = isAway ? 0.45 : 1;
+          child.material.transparent = bodyTransparent;
+          child.material.opacity = bodyOpacity;
         }
       });
     }

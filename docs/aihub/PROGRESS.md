@@ -14,6 +14,52 @@ production-build-first follow-up); dev error overlay fragment visibly leaks into
 (dev-only cosmetic)**. Debt dossier: `T12-STATIC-SWEEP.md` (containment section). Evidence:
 `evidence/phase1/10-close-r4-connected.png`, `11-close-r4-plus3min.png`. Closing commit `157c974`.
 
+### Phase 2 status — IMPLEMENTED (live-verifying)
+
+Ephemeral lifecycle choreography: **door walk-in**, **walk-out / fade on despawn**, **janitor
+cue on session end**. All pure decision logic in `src/lib/aihub/lifecycle.ts` (coordinate-free,
+unit-tested); coordinates/materials/routing in the renderer.
+
+**Done:**
+- New pure module `src/lib/aihub/lifecycle.ts`: `resolveLeavingPlan` (done agents → walk-out vs.
+  fade-in-place for <5s flash agents, cap 4 simultaneous walk-outs with the rest queued, stable
+  oldest-first slot assignment), `buildSessionGroups` (folds a session + its subagent subtree to
+  the root via the `parentAgentId` chain — subagents carry no `session_id`, so grouping by root
+  ancestor is the honest key), `resolveSessionLeaveCues` (one janitor cue per fully-departed
+  session, stable id `aihub-session-leave:<root>`, dedup set), `shallowEqualBooleanRecord`.
+- New constants `src/features/retro-office/objects/aihub/door.ts` (`AIHUB_DOOR_ENTRANCE/EXIT`,
+  `AIHUB_LEAVING_FADE_MS`).
+- Renderer wiring (small additive upstream edits, see FORK.md): `pickSpawnPoint` door branch gated
+  on `spawnAtDoor = activeAdapterType === "aihub"`; a leaving-override in `useAgentTick` (walk-out
+  → route to exit door + latch `leavingSince`; flash → freeze in place); `agents.tsx` opacity
+  ramp + group-hide once faded; `RenderAgent.leavingSince`; `cleaningCues` prop merged with
+  animation-state cues (renderer dedups by id — keeps aihub cues OUT of the T12-sensitive
+  `officeTriggerState`).
+- OfficeScreen: one ref-stabilized memo for the two leaving maps (client-side `firstSeenByAgentId`
+  ref for the flash window) + one guarded `[state.agents]` effect for session-leave cues; three
+  new props passed to RetroOffice3D.
+- Unit tests `tests/unit/aihub/lifecycle.test.ts` (21, all green).
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 50/50 green · full
+`tests/unit/` → only the 5 known pre-existing failures (agentChatPanel-controls ×2,
+useGatewayConnection ×2, agentFleetHydration ×1), zero new (one flaky
+`useAgentSettingsMutationController` timeout appeared once under parallel load, passes 22/22 in
+isolation — not from this work).
+
+**Live-verified (Chrome, :3100 AI Hub Live, real hub roster 19):** fade-out/despawn confirmed on a
+real done node — `f015ccaa-sub-explore` remains in the roster (status=done, hub retains done nodes
+long — NOT a short grace window) but its avatar + nameplate are now faded out and hidden (was a
+visible "Explore" nameplate pre-change). Console shows only the documented T12 update-depth error
+(27×, capped) — no new error types. Evidence: `evidence/phase2/00-baseline-connected.png`,
+`01-donenode-faded.png`. Door walk-in + fresh walk-out fade animation + flash fade-in-place pending
+a cued spawn/despawn from the orchestrator (requested).
+
+**Hub-payload note for the orchestrator:** subagents arrive with `session_id: null` and
+`group: null`; only the spawn links (`session → subagent`) tie them to their session. Session-tree
+grouping for the janitor cue is therefore reconstructed client-side from `parentAgentId`. A
+`session_id` populated on subagent nodes would make this direct (and also help Phase 3 seating),
+but is NOT required — the parent-chain reconstruction is clean.
+
 ### Phase 1 status
 
 Implemented a first-class **`aihub` RuntimeProvider** that drives the office from the hub's
@@ -132,7 +178,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 |---|---|---|
 | 0 — Fork boots | done | evidence/phase0 |
 | 1 — aihub provider + flat roster | **done** (closed with documented T12 debt, commit 157c974) | tests/unit/aihub · evidence/phase1 |
-| 2 — Ephemeral lifecycle | in progress | — |
+| 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
 | 3 — Hierarchy pods | pending | — |
 | 4 — Badges + tasks | pending | — |
 | 5 — Services + errands | pending | — |

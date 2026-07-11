@@ -199,6 +199,14 @@ import {
   type OfficeTextMessageRequest,
 } from "@/lib/office/eventTriggers";
 import { buildOfficeSkillTriggerHoldMaps } from "@/lib/office/places";
+import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
+import {
+  buildSessionGroups,
+  resolveLeavingPlan,
+  resolveSessionLeaveCues,
+  shallowEqualBooleanRecord,
+  type SessionGroupSnapshot,
+} from "@/lib/aihub/lifecycle";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -696,6 +704,11 @@ const EMPTY_REMOTE_CHAT_SESSION: RemoteChatSessionState = {
   messages: [],
 };
 const MAX_REMOTE_MESSAGE_CHARS = 2_000;
+
+// Stable empty singletons + cap for the Phase 2 aihub lifecycle maps/cues (below).
+const EMPTY_BOOLEAN_RECORD: Record<string, boolean> = {};
+const EMPTY_CLEANING_CUES: OfficeCleaningCue[] = [];
+const SESSION_LEAVE_CUE_LIMIT = 24;
 
 const extractRemoteHistoryText = (value: unknown): string => {
   if (typeof value === "string") return value.trim();
@@ -4390,6 +4403,83 @@ export function OfficeScreen({
     () => [...officeAgents, ...remoteOfficeAgents],
     [officeAgents, remoteOfficeAgents],
   );
+  // --- Phase 2: aihub ephemeral lifecycle choreography ---
+  // Done agents walk out through the door and fade; flash agents fade in place. The
+  // hub payload has no spawn time, so first-seen is tracked client-side here. The
+  // resolved maps are stabilized by reference so RetroOffice3D's agent-tick deps stay
+  // quiet when the leaving set is unchanged (T12 discipline). Non-aihub agents carry
+  // no `hub`, so both maps stay empty on demo/openclaw floors.
+  const firstSeenByAgentIdRef = useRef<Record<string, number>>({});
+  const leavingWalkOutRef = useRef<Record<string, boolean>>(EMPTY_BOOLEAN_RECORD);
+  const leavingInPlaceRef = useRef<Record<string, boolean>>(EMPTY_BOOLEAN_RECORD);
+  const { leavingByAgentId, leavingInPlaceByAgentId } = useMemo(() => {
+    const now = Date.now();
+    const firstSeen = firstSeenByAgentIdRef.current;
+    const present = new Set<string>();
+    for (const agent of state.agents) {
+      present.add(agent.agentId);
+      if (firstSeen[agent.agentId] === undefined) firstSeen[agent.agentId] = now;
+    }
+    for (const id of Object.keys(firstSeen)) {
+      if (!present.has(id)) delete firstSeen[id];
+    }
+    const plan = resolveLeavingPlan({
+      agents: state.agents.map((agent) => ({
+        agentId: agent.agentId,
+        hubStatus: agent.hub?.hubStatus ?? null,
+      })),
+      firstSeenByAgentId: firstSeen,
+      now,
+    });
+    if (
+      !shallowEqualBooleanRecord(plan.walkOutByAgentId, leavingWalkOutRef.current)
+    ) {
+      leavingWalkOutRef.current = plan.walkOutByAgentId;
+    }
+    if (
+      !shallowEqualBooleanRecord(
+        plan.fadeInPlaceByAgentId,
+        leavingInPlaceRef.current,
+      )
+    ) {
+      leavingInPlaceRef.current = plan.fadeInPlaceByAgentId;
+    }
+    return {
+      leavingByAgentId: leavingWalkOutRef.current,
+      leavingInPlaceByAgentId: leavingInPlaceRef.current,
+    };
+  }, [state.agents]);
+  // Janitor cue when a whole session (session node + its subagents) leaves the roster.
+  // Emitted once per session end; the array is capped and RetroOffice3D dedups by cue id.
+  const [aihubCleaningCues, setAihubCleaningCues] = useState<OfficeCleaningCue[]>(
+    EMPTY_CLEANING_CUES,
+  );
+  const prevSessionGroupsRef = useRef<SessionGroupSnapshot[]>([]);
+  const emittedSessionLeaveKeysRef = useRef<string[]>([]);
+  useEffect(() => {
+    const currentSessions = buildSessionGroups(
+      state.agents
+        .filter((agent) => agent.hub)
+        .map((agent) => ({
+          agentId: agent.agentId,
+          name: agent.name || agent.agentId,
+          parentAgentId: agent.hub?.parentAgentId ?? null,
+        })),
+    );
+    const { cues, emittedKeys } = resolveSessionLeaveCues({
+      previousSessions: prevSessionGroupsRef.current,
+      currentSessions,
+      emittedKeys: emittedSessionLeaveKeysRef.current,
+      now: Date.now(),
+    });
+    prevSessionGroupsRef.current = currentSessions;
+    if (cues.length > 0) {
+      emittedSessionLeaveKeysRef.current = emittedKeys.slice(-64);
+      setAihubCleaningCues((prev) =>
+        [...cues, ...prev].slice(0, SESSION_LEAVE_CUE_LIMIT),
+      );
+    }
+  }, [state.agents]);
   const remoteOfficeVisible =
     remoteOfficeEnabled &&
     (remoteOfficeSourceKind === "presence_endpoint"
@@ -4773,6 +4863,9 @@ export function OfficeScreen({
           layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
           officeCenterSignal={officeCameraCenterSignal}
           animationState={officeAnimationState}
+          cleaningCues={aihubCleaningCues}
+          leavingByAgentId={leavingByAgentId}
+          leavingInPlaceByAgentId={leavingInPlaceByAgentId}
           deskAssignmentByDeskUid={deskAssignmentByDeskUid}
           githubReviewAgentId={githubReviewAgentId}
           qaTestingAgentId={qaTestingAgentId}

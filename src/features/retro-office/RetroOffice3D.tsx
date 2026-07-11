@@ -109,6 +109,10 @@ import {
   pruneExpiredJanitorActors,
 } from "@/features/retro-office/core/janitors";
 import {
+  AIHUB_DOOR_ENTRANCE,
+  AIHUB_DOOR_EXIT,
+} from "@/features/retro-office/objects/aihub/door";
+import {
   createWallItem,
   getItemBaseSize,
   getItemRotationRadians,
@@ -870,6 +874,9 @@ function useAgentTick(
   qaHoldByAgentId: Record<string, boolean> = {},
   githubReviewByAgentId: Record<string, boolean> = {},
   standupMeeting: StandupMeeting | null = null,
+  spawnAtDoor = false,
+  leavingByAgentId: Record<string, boolean> = {},
+  leavingInPlaceByAgentId: Record<string, boolean> = {},
 ) {
   const renderAgentsRef = useRef<RenderAgent[]>([]);
   const renderAgentLookupRef = useRef<Map<string, RenderAgent>>(new Map());
@@ -906,17 +913,25 @@ function useAgentTick(
     }
     return ROAM_POINTS[Math.floor(Math.random() * ROAM_POINTS.length)];
   }, []);
-  const pickSpawnPoint = useCallback((agentId: string) => {
-    if (isRemoteOfficeAgentId(agentId)) {
-      return REMOTE_ROAM_POINTS[
-        Math.floor(Math.random() * REMOTE_ROAM_POINTS.length)
-      ];
-    }
-    return {
-      x: Math.random() * 800 + 100,
-      y: Math.random() * 500 + 100,
-    };
-  }, []);
+  const pickSpawnPoint = useCallback(
+    (agentId: string) => {
+      if (isRemoteOfficeAgentId(agentId)) {
+        return REMOTE_ROAM_POINTS[
+          Math.floor(Math.random() * REMOTE_ROAM_POINTS.length)
+        ];
+      }
+      // aihub agents enter through the front door and walk in to their target
+      // (A* handles the walk-in); demo/openclaw keep the original random spawn.
+      if (spawnAtDoor) {
+        return { x: AIHUB_DOOR_ENTRANCE.x, y: AIHUB_DOOR_ENTRANCE.y };
+      }
+      return {
+        x: Math.random() * 800 + 100,
+        y: Math.random() * 500 + 100,
+      };
+    },
+    [spawnAtDoor],
+  );
 
   const standupActive =
     standupMeeting?.phase === "gathering" ||
@@ -1716,6 +1731,43 @@ function useAgentTick(
               : Math.PI / 2,
         };
       }
+      // aihub despawn choreography: done agents fade out. Walk-out agents route to
+      // the exit door first; flash agents (queued in leavingInPlaceByAgentId) fade
+      // where they stand. leavingSince is latched once so the fade ramp is continuous.
+      const isLeavingWalkOut = Boolean(leavingByAgentId[agent.id]);
+      const isLeavingInPlace = Boolean(leavingInPlaceByAgentId[agent.id]);
+      if (isLeavingWalkOut || isLeavingInPlace) {
+        const fromX = ns.x ?? existing?.x ?? AIHUB_DOOR_EXIT.x;
+        const fromY = ns.y ?? existing?.y ?? AIHUB_DOOR_EXIT.y;
+        ns.interactionTarget = undefined;
+        ns.smsBoothStage = undefined;
+        ns.phoneBoothStage = undefined;
+        ns.serverRoomStage = undefined;
+        ns.gymStage = undefined;
+        ns.qaLabStage = undefined;
+        if (isLeavingWalkOut) {
+          ns.targetX = AIHUB_DOOR_EXIT.x;
+          ns.targetY = AIHUB_DOOR_EXIT.y;
+          ns.facing = AIHUB_DOOR_EXIT.facing;
+          const targetChanged =
+            existing?.targetX !== AIHUB_DOOR_EXIT.x ||
+            existing?.targetY !== AIHUB_DOOR_EXIT.y ||
+            existing?.leavingSince === undefined;
+          if (targetChanged) {
+            ns.path = planPath(fromX, fromY, AIHUB_DOOR_EXIT.x, AIHUB_DOOR_EXIT.y);
+          }
+          ns.state = "walking";
+        } else {
+          ns.targetX = fromX;
+          ns.targetY = fromY;
+          ns.path = [];
+          ns.state = "standing";
+        }
+        ns.leavingSince = existing?.leavingSince ?? now;
+      } else if (ns.leavingSince !== undefined) {
+        // No longer leaving (e.g. a resumed session): drop the fade latch.
+        ns.leavingSince = undefined;
+      }
       next.push({ ...agent, ...ns, status: effectiveStatus } as RenderAgent);
     });
     renderAgentsRef.current = next;
@@ -1745,6 +1797,8 @@ function useAgentTick(
     resolveMeetingTarget,
     standupActive,
     standupMeeting,
+    leavingByAgentId,
+    leavingInPlaceByAgentId,
   ]);
 
   // Tick called each frame — follows A* waypoints, no React state.
@@ -2252,6 +2306,8 @@ export function RetroOffice3D({
   cleaningCues = EMPTY_CLEANING_CUES,
   deskHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   gymHoldByAgentId = EMPTY_BOOLEAN_RECORD,
+  leavingByAgentId = EMPTY_BOOLEAN_RECORD,
+  leavingInPlaceByAgentId = EMPTY_BOOLEAN_RECORD,
   githubReviewAgentId = null,
   phoneBoothAgentId = null,
   phoneCallScenario = null,
@@ -2366,6 +2422,10 @@ export function RetroOffice3D({
   cleaningCues?: OfficeCleaningCue[];
   deskHoldByAgentId?: Record<string, boolean>;
   gymHoldByAgentId?: Record<string, boolean>;
+  // aihub despawn choreography (Phase 2): agents routed to the exit door + fading,
+  // and flash agents fading in place. Empty for demo/openclaw floors.
+  leavingByAgentId?: Record<string, boolean>;
+  leavingInPlaceByAgentId?: Record<string, boolean>;
   githubReviewAgentId?: string | null;
   phoneBoothAgentId?: string | null;
   phoneCallScenario?: MockPhoneCallScenario | null;
@@ -2468,7 +2528,14 @@ export function RetroOffice3D({
   onTaskBoardDeleteCard?: (cardId: string) => void;
   onTaskBoardRefreshCronJobs?: () => void;
 }) {
-  const resolvedCleaningCues = animationState?.cleaningCues ?? cleaningCues;
+  // Merge the standalone cleaningCues prop (aihub session-leave cues, kept out of the
+  // trigger-state pipeline) with the animation-state cues; the renderer dedups by id.
+  const resolvedCleaningCues = useMemo(
+    () => [...(animationState?.cleaningCues ?? EMPTY_CLEANING_CUES), ...cleaningCues],
+    [animationState?.cleaningCues, cleaningCues],
+  );
+  // aihub agents walk in through the front door instead of teleporting to a random point.
+  const spawnAtDoor = activeAdapterType === "aihub";
   const resolvedDanceUntilByAgentId =
     animationState?.danceUntilByAgentId ?? EMPTY_NUMBER_RECORD;
   const kanbanDeskTaskCount = useMemo(
@@ -2859,6 +2926,9 @@ export function RetroOffice3D({
     resolvedQaHoldByAgentId,
     resolvedGithubReviewByAgentId,
     standupMeeting,
+    spawnAtDoor,
+    leavingByAgentId,
+    leavingInPlaceByAgentId,
   );
   useEffect(() => {
     const syncRenderAgentUi = () => {
