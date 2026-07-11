@@ -1134,6 +1134,21 @@ agent-to-agent collaboration (SendMessage/teammate exchanges in hub activity), n
 Mapped: Phase 3 = workflow/group clustering within session pods · Phase 5 = library/research zone ·
 Phase 7 = behavior simulation (idle rotation, huddles, collaboration bubbles).
 
+## SOAK FEEDBACK #1 (Ken, 2026-07-11) → Phase 9: interior remodel + world integrity
+
+1. Ping-pong table is against a wall — an agent plays from the OTHER SIDE of the wall. Move/
+   adjust the table + player slots.
+2. Seating near the ping-pong area is scattered — rearrange into a coherent lounge.
+3. A jukebox occupies the old KITCHEN spot — bring the kitchen back (break-room vibe).
+4. Desks/work area near the juke → convert to an EATING AREA (simulate a real office).
+5. Single tables are fine but ADD HUDDLE AREAS — round tables + chairs where agents working
+   together can gather (furniture for the payload-ready huddle choreography).
+6. The empty middle office room → LIBRARY (shelves + books) = the research area.
+7. Agents walk THROUGH walls/objects and even OUTSIDE the building; no visible way in — wall
+   collision must apply to all movement (roam/idle/errand), agents contained, entrance readable.
+8. CLICK-AND-DRAG camera panning for moving the view around.
+9. DOORS should visibly open/close when used.
+
 ## Standing rules (consolidated — READ BEFORE ANY BROWSER/FLEET WORK)
 
 1. **One Chrome driver at a time** (server-persisted settings churn under concurrent drivers).
