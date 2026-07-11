@@ -7,6 +7,7 @@ import {
   OFFICE_FLOORS,
   getAdjacentEnabledOfficeFloorId,
   listAvailableFloorsForAdapter,
+  resolveActiveOfficeFloorId,
   type FloorDefinition,
   type FloorId,
   type FloorProvider,
@@ -104,9 +105,11 @@ export function OfficeFloorNav({
   const buildingFloors = availableFloors.filter((f) => f.zone === "building");
   const outsideFloors = availableFloors.filter((f) => f.zone === "outside");
 
-  // Active floor — fall back to lobby if current floor is no longer available
-  const activeIsAvailable = availableFloors.some((f) => f.id === activeFloorId);
-  const displayActiveFloorId = activeIsAvailable ? activeFloorId : "lobby";
+  // The current-floor panel reflects the ACTUAL active floor. The demo lobby is retired,
+  // so never fall back to it (or any disabled floor): show the active floor when enabled,
+  // else the home floor. (Regression T20 — the old `: "lobby"` fallback surfaced the
+  // now-disabled lobby whenever the active floor wasn't in the adapter's available list.)
+  const displayActiveFloorId = resolveActiveOfficeFloorId(activeFloorId);
 
   const activeFloor =
     OFFICE_FLOORS.find((floor) => floor.id === displayActiveFloorId) ?? OFFICE_FLOORS[0];

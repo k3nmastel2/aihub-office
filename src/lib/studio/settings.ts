@@ -1005,6 +1005,16 @@ export const resolveDefaultStudioGatewayProfile = (
   }
 };
 
+// An adapter is "retired" when no ENABLED floor uses it as its provider (e.g. demo —
+// its lobby/training/market/campus floors are all disabled after the demo retirement).
+// A stale `lastKnownGood` pointing at a retired adapter must never influence boot: without
+// this, a cold boot whose persisted `gateway.adapterType` is absent falls through to the
+// retired backend and lands on a disabled floor.
+const isRetiredGatewayAdapter = (adapterType: StudioGatewayAdapterType): boolean =>
+  !OFFICE_FLOORS.some(
+    (floor) => floor.enabled && (floor.provider as string) === adapterType,
+  );
+
 export const resolveStudioGatewayProfiles = ({
   gateway,
   localDefaults = null,
@@ -1012,9 +1022,14 @@ export const resolveStudioGatewayProfiles = ({
   gateway: StudioGatewaySettings | null;
   localDefaults?: StudioGatewaySettings | null;
 }): ResolvedStudioGatewayProfiles => {
+  const lastKnownGoodAdapter = gateway?.lastKnownGood?.adapterType;
+  const usableLastKnownGoodAdapter =
+    lastKnownGoodAdapter && !isRetiredGatewayAdapter(lastKnownGoodAdapter)
+      ? lastKnownGoodAdapter
+      : undefined;
   const selectedAdapterType =
     gateway?.adapterType ??
-    gateway?.lastKnownGood?.adapterType ??
+    usableLastKnownGoodAdapter ??
     localDefaults?.adapterType ??
     "openclaw";
 
@@ -1031,7 +1046,10 @@ export const resolveStudioGatewayProfiles = ({
   }
 
   const lastKnownGoodForSelected =
-    gateway?.lastKnownGood?.adapterType === selectedAdapterType ? gateway.lastKnownGood : null;
+    gateway?.lastKnownGood?.adapterType === selectedAdapterType &&
+    !isRetiredGatewayAdapter(selectedAdapterType)
+      ? gateway.lastKnownGood
+      : null;
 
   if (!profiles[selectedAdapterType] && lastKnownGoodForSelected?.url) {
     profiles[selectedAdapterType] = {

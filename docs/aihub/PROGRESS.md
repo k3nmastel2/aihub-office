@@ -280,6 +280,46 @@ Carry-forward (Phase 2 QA gate): the >4-simultaneous-done zero-ghost count — t
 
 ---
 
+## T20 — cold-boot lands the disabled Lobby/DEMO (regression from 048e2b4 demo-retirement)
+
+QA (phase4-badges) reproduced on BOTH dev + prod fresh builds: cold boot shows Lobby/DEMO
+despite `/api/studio` persisting `activeFloorId:"aihub-live"` + `adapter:"aihub"`. Floor-switch
+via the UI is the workaround, so it's the BOOT path, not steady-state. (Phase 3's landing PASS
+ran against a stale pre-048e2b4 bundle — this path was never gate-tested; now covered by the
+restart-before-gates ops rule.)
+
+**Investigation (phase3-pods, owner of the commit):** the persisted state is actually correct
+(`settings.json` + live `/api/studio`: `activeFloorId:aihub-live`, `gateway.adapterType:aihub`,
+aihub URL `http://localhost:3000`) with ONE stale value: `gateway.lastKnownGood.adapterType:"demo"`.
+Exhaustive static trace of that state resolves to aihub-live + aihub-connected by every path
+(`resolveStudioGatewayProfiles` picks `gateway.adapterType`=aihub, not lastKnownGood; aihub is
+auto-managed; `resolveActiveOfficeFloorId` can't return the disabled lobby; the FloorNav keys on
+`selectedAdapterType`=aihub). So the exact failing mechanism needs the live capture (requested from
+phase4-badges) — likely a fresh-build boot-order/state race or a settings-load that drops
+`gateway.adapterType` (in which case the fall-through below IS the trigger).
+
+**Landed (two fixes, correct regardless of the capture; honest note: may not be the sole root):**
+1. `settings.ts` — `resolveStudioGatewayProfiles` neutralizes a `lastKnownGood` whose adapter has
+   no ENABLED floor (retired demo): `isRetiredGatewayAdapter` gates the `selectedAdapterType`
+   fall-through + `lastKnownGoodForSelected`, so a cold boot with `gateway.adapterType` ABSENT can
+   never resurrect the retired demo backend. (No-op for Ken's exact state where adapterType=aihub
+   is set + wins first — hardening for a real latent landmine.) 3 unit tests.
+2. `OfficeFloorNav.tsx` — the current-floor panel now uses `resolveActiveOfficeFloorId(activeFloorId)`
+   instead of the old `... : "lobby"` fallback, so it NEVER surfaces the now-disabled lobby (the
+   visible symptom). 1 unit test (resolver never yields a disabled floor).
+
+**Gates:** typecheck green · `officeFloors` 8/8 · `studioSettings` 24/24 · full `tests/unit/` only
+the 5 known pre-existing failures, zero new. FORK.md rows added.
+
+**HELD for the capture (main-directed, don't build on an unconfirmed mechanism):** candidate fix #1
+— an aihub-scoped self-correction (when floor=aihub-live but the adapter isn't aihub/connected,
+re-drive the connect, replacing the removed lobby-auto-navigate safety net). Lives in
+`OfficeScreen.tsx` (the phase4-badges collision file) — main will confirm the handoff once its
+fast-follow releases the window. **T20 stays OPEN** until the capture confirms the root and the
+fix is Chrome-verified on a fresh cold-boot cycle.
+
+---
+
 ## Prior sprint: T12 stabilization (before Phase 3)
 
 **PHASE 2 CLOSED 2026-07-11.** Door walk-in: QA-verified (burst + dispersal + gating). Lifecycle

@@ -421,6 +421,58 @@ describe("studio settings normalization", () => {
     );
   });
 
+  it("honors an explicit selected adapter over a stale retired lastKnownGood (T20)", () => {
+    const resolved = resolveStudioGatewayProfiles({
+      gateway: normalizeStudioSettings({
+        gateway: {
+          url: "http://localhost:3000",
+          token: "",
+          adapterType: "aihub",
+          lastKnownGood: {
+            url: "ws://localhost:18789",
+            token: "",
+            adapterType: "demo",
+          },
+        },
+      }).gateway,
+      localDefaults: null,
+    });
+    expect(resolved.selectedAdapterType).toBe("aihub");
+    // The retired demo lastKnownGood must not be attached to the selected aihub profile.
+    expect(resolved.lastKnownGoodForSelected).toBeNull();
+  });
+
+  it("never falls through to a retired adapter when the selection is absent (T20)", () => {
+    // adapterType missing + only a stale demo lastKnownGood: boot must NOT pick demo (its
+    // floors are all disabled), so it never lands the retired backend behind a disabled floor.
+    const resolved = resolveStudioGatewayProfiles({
+      gateway: {
+        lastKnownGood: {
+          url: "ws://localhost:18789",
+          token: "",
+          adapterType: "demo",
+        },
+      } as unknown as Parameters<typeof resolveStudioGatewayProfiles>[0]["gateway"],
+      localDefaults: null,
+    });
+    expect(resolved.selectedAdapterType).not.toBe("demo");
+    expect(resolved.selectedAdapterType).toBe("openclaw");
+  });
+
+  it("still honors a non-retired lastKnownGood adapter when the selection is absent", () => {
+    const resolved = resolveStudioGatewayProfiles({
+      gateway: {
+        lastKnownGood: {
+          url: "ws://localhost:18789",
+          token: "",
+          adapterType: "openclaw",
+        },
+      } as unknown as Parameters<typeof resolveStudioGatewayProfiles>[0]["gateway"],
+      localDefaults: null,
+    });
+    expect(resolved.selectedAdapterType).toBe("openclaw");
+  });
+
   it("resolves adapter-specific defaults for dormant profiles", () => {
     expect(resolveDefaultStudioGatewayProfile("local", null)).toEqual({
       url: "http://localhost:7770",

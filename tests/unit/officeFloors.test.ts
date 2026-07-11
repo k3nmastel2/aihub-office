@@ -84,6 +84,26 @@ describe("office floor registry", () => {
     expect(resolveActiveOfficeFloorId(null)).toBe("aihub-live");
   });
 
+  it("never resolves to a disabled floor (nav display + boot fallback, T20)", () => {
+    // The floor-nav current-floor panel and cold-boot both route through this resolver;
+    // it must NEVER surface a disabled floor (e.g. the retired lobby).
+    for (const requested of [
+      "lobby", // disabled
+      "training", // disabled
+      "campus", // disabled
+      "aihub-live", // enabled
+      "hermes-first", // enabled
+      null,
+      undefined,
+    ] as const) {
+      const resolved = resolveActiveOfficeFloorId(requested);
+      expect(getOfficeFloor(resolved).enabled).toBe(true);
+    }
+    // An enabled requested floor is honored as-is; a disabled one falls to the home floor.
+    expect(resolveActiveOfficeFloorId("hermes-first")).toBe("hermes-first");
+    expect(resolveActiveOfficeFloorId("lobby")).toBe("aihub-live");
+  });
+
   it("cycles across enabled floors only (lobby excluded)", () => {
     expect(getAdjacentEnabledOfficeFloorId("aihub-live", 1)).toBe("custom-second");
     expect(getAdjacentEnabledOfficeFloorId("aihub-live", -1)).toBe("claw3d-runtime");
