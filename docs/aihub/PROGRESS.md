@@ -5,6 +5,65 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 4 — Badges + tasks
 
+### Phase 4 status — IMPLEMENTED (unit-green + typecheck-green; pending live Chrome pass)
+
+The office now SHOWS each agent's work state. Four vertical pieces, all pure decision logic
+in `src/lib/aihub/` (unit-tested) with the coordinates/materials in the renderer:
+
+**Done:**
+- New pure module `src/lib/aihub/badges.ts`: `computeNameplateChips(hub)` → `{task,bg}`
+  (task = `remaining/total` where remaining = pending+in_progress; bg = running count;
+  each null when zero so chips only show when non-zero); `resolveAgentBadge(hub)` →
+  `{badge:"blocked"|null, detail}`; `computeDeskStackCount(hub)` → outstanding
+  (pending+in_progress) capped at `DESK_STACK_CAP=5`.
+- New pure module `src/lib/aihub/taskCards.ts`: `mapHubTaskStatusToBoard`
+  (pending→todo, in_progress→in_progress, completed→done, blocked/review pass through,
+  unknown→todo); `buildAihubTaskCards`/`buildAihubTaskCardsByStatus` (one `TaskBoardCard`
+  per hub `tasks.items` entry, subject run through `sanitizeTaskTextForOffice`, stable id
+  `aihub-task:<agentId>:<itemId>`, fixed epoch timestamps so identity never churns,
+  `isInferred:true`).
+- **Blocked badge** (`objects/agents.tsx`): a pulsing amber warning-triangle billboard
+  (`circleGeometry(r,3)` + `!`) above the head, an amber status-dot override, and an amber
+  ground pulse-ring — a blocked node reads clearly distinct from a plain idle one.
+- **Nameplate chips** (`objects/agents.tsx`): compact green task-progress pill (`8/10`) +
+  blue background-task pill (count + a small cog-hint ring) below the nameplate.
+  **Font note:** the default 3D text font has no ☑/⚙/⚠ glyphs, so chips/badge use
+  font-safe numerals + geometry (colored pills + a triangle + a ring) instead of tofu.
+- **Desk paper stacks** (`objects/aihub/DeskPaperStack.tsx`, new): a small stack of paper
+  sheets on each occupied aihub desk, height = the seated agent's `deskStackCount`
+  (deterministic index-jitter, sits on the desk surface y=0.61). Rendered like PodRug —
+  additive hook in RetroOffice3D, gated `layoutPreset==="aihub"`.
+- **Immersive Kanban feed**: OfficeScreen aihub-gated `aihubTaskCardsByStatus` memo
+  source-switches `taskBoardCardsByStatus` to the roster's live `tasks.items` on the aihub
+  floor, so the existing Kanban shows agents' REAL /tasks lists. **Least-invasive choice:**
+  a read-only SOURCE-SWITCH that NEVER dispatches into the shared task store (the store keeps
+  running untouched — no churn, no persistence corruption); off-floor passes the store
+  through unchanged. Kanban card edits/moves on aihub cards are inert live-mirror ops
+  (interactions are Phase 6); documented.
+- **Detail surface (chosen):** the hub `detail` (why an agent is blocked) rides the existing
+  hovered-agent HTML tooltip (`RetroOffice3D` ~6236) — a `blocked` amber status pill + the
+  detail line. The full click card (tier/task/tool/blocked detail) is Phase 6 scope.
+- Threading: `OfficeAgent` gains optional `badge`/`badgeDetail`/`taskChip`/`bgChip`/
+  `deskStackCount` (derived in `mapAgentToOffice`); `AgentModelProps` gains
+  `badge`/`taskChip`/`bgChip`; `sceneAgents.map` passes them through via `"field" in agent`
+  guards. No RenderAgent/tick change — static props flow through the existing OfficeAgent path.
+
+**Unit tests:** `tests/unit/aihub/badges.test.ts` (9) + `tests/unit/aihub/taskCards.test.ts`
+(5), incl. a rich-taskItems assertion against `tests/fixtures/aihub/live-real.json` (the
+Claude Code node: 7 pending / 1 in_progress / 2 completed → 8/10 chip, 5-capped stack) and a
+directive-sanitization case. **Blocked path** is covered by hand fixtures (the live payload
+rarely carries `badge:"blocked"`).
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 91/91 green
+(badges 9 + taskCards 5 + 77 prior) · full `tests/unit/` → only the 5 known pre-existing
+failures (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1),
+zero new.
+
+**Next:** live Chrome self-verify against my real hub session (rich /tasks) — chips + paper
+stacks + Kanban show real content; blocked badge via a tab-only devtools mock injection.
+
+---
+
 **PHASE 3 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA verified: zero-click landing
 on AI Hub Live with NO demo/lobby anywhere · pods + tinted rugs render (2 occupied as expected
 for a 2-session roster) · seating math matches (Hermes solo pod never starved; Claude Code's
@@ -357,7 +416,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 1 — aihub provider + flat roster | **done** (closed with documented T12 debt, commit 157c974) | tests/unit/aihub · evidence/phase1 |
 | 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
-| 4 — Badges + tasks | in progress | — |
+| 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | pending | — |
 | 6 — Interactions | pending | — |
 | 7 — Polish / parity | pending | — |

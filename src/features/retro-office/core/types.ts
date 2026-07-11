@@ -9,6 +9,13 @@ export type OfficeAgent = {
   color: string;
   item: string;
   avatarProfile?: AgentAvatarProfile | null;
+  // Phase 4 (aihub) work-state HUD, derived from the hub metadata in mapAgentToOffice.
+  // All optional so non-aihub actors (demo/openclaw/remote) simply omit them.
+  badge?: "blocked" | null;
+  badgeDetail?: string | null;
+  taskChip?: string | null; // "remaining/total" task progress, e.g. "8/10"
+  bgChip?: string | null; // running background-task count, e.g. "1"
+  deskStackCount?: number; // desk paper-stack height (outstanding tasks, capped)
 };
 
 export type JanitorTool = "broom" | "vacuum" | "floor_scrubber";

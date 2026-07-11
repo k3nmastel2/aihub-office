@@ -43,4 +43,8 @@ export type AgentModelProps = {
   showSpeech?: boolean;
   speechText?: string | null;
   suppressSpeechBubble?: boolean;
+  // Phase 4 (aihub) work-state HUD.
+  badge?: "blocked" | null;
+  taskChip?: string | null;
+  bgChip?: string | null;
 };

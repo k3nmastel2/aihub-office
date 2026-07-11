@@ -64,8 +64,13 @@ export const AgentModel = memo(function AgentModel({
   showSpeech = false,
   speechText = null,
   suppressSpeechBubble = false,
+  badge = null,
+  taskChip = null,
+  bgChip = null,
 }: AgentModelProps) {
+  const blocked = badge === "blocked";
   const groupRef = useRef<THREE.Group>(null);
+  const blockedBadgeRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
   const rightArmRef = useRef<THREE.Group>(null);
   const leftLegRef = useRef<THREE.Group>(null);
@@ -335,18 +340,30 @@ export const AgentModel = memo(function AgentModel({
     const isError = agent.status === "error";
     const isAway = agent.state === "away";
 
+    // Blocked (aihub) reads as a distinct hot amber, overriding the working/idle color.
     if (statusDotMatRef.current) {
       statusDotMatRef.current.color.set(
-        isError ? "#ef4444" : working ? "#22c55e" : "#f59e0b",
+        isError
+          ? "#ef4444"
+          : blocked
+            ? "#fbbf24"
+            : working
+              ? "#22c55e"
+              : "#f59e0b",
       );
     }
 
     if (pulseRingRef.current && pulseRingMatRef.current) {
-      if (working || isError) {
+      // Blocked agents also pulse an amber ground ring (like working/error) so a stalled
+      // node stands out from a plain idle one.
+      const blockedRing = blocked && !isError && !working;
+      if (working || isError || blockedRing) {
         const pulse = (Math.sin(agent.frame * 0.05) + 1) / 2;
         const scale = isError ? 1.25 + pulse * 0.55 : 1.2 + pulse * 0.8;
         pulseRingRef.current.scale.setScalar(scale);
-        pulseRingMatRef.current.color.set(isError ? "#ef4444" : "#22c55e");
+        pulseRingMatRef.current.color.set(
+          isError ? "#ef4444" : blockedRing ? "#fbbf24" : "#22c55e",
+        );
         pulseRingMatRef.current.opacity = isError
           ? 0.7 - pulse * 0.3
           : 0.55 - pulse * 0.45;
@@ -354,6 +371,13 @@ export const AgentModel = memo(function AgentModel({
       } else {
         pulseRingRef.current.visible = false;
       }
+    }
+
+    // Pulse the floating blocked badge (scale + gentle bob) when present.
+    if (blocked && blockedBadgeRef.current) {
+      const badgePulse = (Math.sin(agent.frame * 0.08) + 1) / 2;
+      blockedBadgeRef.current.scale.setScalar(0.94 + badgePulse * 0.16);
+      blockedBadgeRef.current.position.y = 1.5 + badgePulse * 0.03;
     }
 
     // Leaving agents (aihub despawn) ramp opacity to 0 over AIHUB_LEAVING_FADE_MS;
@@ -688,6 +712,21 @@ export const AgentModel = memo(function AgentModel({
   const subtitleText = typeof subtitle === "string" ? subtitle.trim() : "";
   const nameplateFontSize =
     nameplateText.length > 9 ? 0.118 : nameplateText.length > 7 ? 0.13 : 0.144;
+
+  // Phase 4 nameplate chips: task progress + background-task count, rendered as small
+  // colored pills (font-safe numerals; the default 3D font has no ☑/⚙ glyphs). Laid out
+  // as a centered row just below the nameplate; only shown when non-zero.
+  const chipTask = taskChip?.trim() || null;
+  const chipBg = bgChip?.trim() || null;
+  const hasChips = Boolean(chipTask || chipBg);
+  const nameplateHeight = subtitleText ? 0.34 : 0.24;
+  const taskChipWidth = chipTask ? 0.14 + chipTask.length * 0.056 : 0;
+  const bgChipWidth = chipBg ? 0.26 + Math.max(0, chipBg.length - 1) * 0.05 : 0;
+  const chipGap = chipTask && chipBg ? 0.05 : 0;
+  const chipsTotalWidth = taskChipWidth + bgChipWidth + chipGap;
+  const chipRowY = -(nameplateHeight / 2) - 0.14;
+  const taskChipX = -chipsTotalWidth / 2 + taskChipWidth / 2;
+  const bgChipX = chipsTotalWidth / 2 - bgChipWidth / 2;
 
   return (
     <group
@@ -1151,7 +1190,84 @@ export const AgentModel = memo(function AgentModel({
               {subtitleText}
             </Text>
           ) : null}
+          {hasChips ? (
+            <group position={[0, chipRowY, 0.002]}>
+              {chipTask ? (
+                <group position={[taskChipX, 0, 0]}>
+                  <mesh position={[0, 0, -0.001]}>
+                    <planeGeometry args={[taskChipWidth + 0.02, 0.18]} />
+                    <meshBasicMaterial color="#166534" transparent opacity={0.92} />
+                  </mesh>
+                  <mesh>
+                    <planeGeometry args={[taskChipWidth, 0.16]} />
+                    <meshBasicMaterial color="#0f2a17" transparent opacity={0.96} />
+                  </mesh>
+                  <Text
+                    position={[0, 0, 0.002]}
+                    fontSize={0.1}
+                    color="#86efac"
+                    anchorX="center"
+                    anchorY="middle"
+                    font={undefined}
+                  >
+                    {chipTask}
+                  </Text>
+                </group>
+              ) : null}
+              {chipBg ? (
+                <group position={[bgChipX, 0, 0]}>
+                  <mesh position={[0, 0, -0.001]}>
+                    <planeGeometry args={[bgChipWidth + 0.02, 0.18]} />
+                    <meshBasicMaterial color="#0c4a6e" transparent opacity={0.92} />
+                  </mesh>
+                  <mesh>
+                    <planeGeometry args={[bgChipWidth, 0.16]} />
+                    <meshBasicMaterial color="#0c2438" transparent opacity={0.96} />
+                  </mesh>
+                  {/* cog hint (font has no ⚙ glyph): a small blue ring left of the count. */}
+                  <mesh position={[-bgChipWidth / 2 + 0.075, 0, 0.002]}>
+                    <ringGeometry args={[0.028, 0.052, 10]} />
+                    <meshBasicMaterial color="#7dd3fc" />
+                  </mesh>
+                  <Text
+                    position={[0.035, 0, 0.002]}
+                    fontSize={0.1}
+                    color="#7dd3fc"
+                    anchorX="center"
+                    anchorY="middle"
+                    font={undefined}
+                  >
+                    {chipBg}
+                  </Text>
+                </group>
+              ) : null}
+            </group>
+          ) : null}
         </Billboard>
+      ) : null}
+      {blocked ? (
+        <group ref={blockedBadgeRef} position={[0, 1.5, 0]}>
+          <Billboard>
+            <mesh position={[0, 0, -0.002]} rotation={[0, 0, Math.PI / 2]}>
+              <circleGeometry args={[0.2, 3]} />
+              <meshBasicMaterial color="#3a2a08" transparent opacity={0.95} />
+            </mesh>
+            <mesh rotation={[0, 0, Math.PI / 2]}>
+              <circleGeometry args={[0.17, 3]} />
+              <meshBasicMaterial color="#fbbf24" />
+            </mesh>
+            <Text
+              position={[0, -0.01, 0.002]}
+              fontSize={0.17}
+              color="#1a1205"
+              anchorX="center"
+              anchorY="middle"
+              font={undefined}
+            >
+              !
+            </Text>
+          </Billboard>
+        </group>
       ) : null}
       <group ref={awayBubbleRef} visible={false}>
         <Billboard position={[0, 1.3, 0]}>

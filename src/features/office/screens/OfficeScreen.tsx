@@ -213,6 +213,12 @@ import {
   computeAihubSeating,
   shallowEqualStringRecord,
 } from "@/lib/aihub/seating";
+import {
+  computeDeskStackCount,
+  computeNameplateChips,
+  resolveAgentBadge,
+} from "@/lib/aihub/badges";
+import { buildAihubTaskCardsByStatus } from "@/lib/aihub/taskCards";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -580,6 +586,10 @@ const getDeterministicItem = (id: string) => {
 };
 
 const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
+  // Phase 4: derive the work-state HUD from the hub metadata (null on non-aihub agents).
+  const { badge, detail: badgeDetail } = resolveAgentBadge(agent.hub);
+  const { task: taskChip, bg: bgChip } = computeNameplateChips(agent.hub);
+  const deskStackCount = computeDeskStackCount(agent.hub);
   if (agent.status === "error") {
     return {
       id: agent.agentId,
@@ -589,6 +599,11 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
       color: stringToColor(agent.agentId),
       item: getDeterministicItem(agent.agentId),
       avatarProfile: agent.avatarProfile ?? null,
+      badge,
+      badgeDetail,
+      taskChip,
+      bgChip,
+      deskStackCount,
     };
   }
   const isWorking = agent.status === "running" || Boolean(agent.runId);
@@ -600,6 +615,11 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
     color: stringToColor(agent.agentId),
     item: getDeterministicItem(agent.agentId),
     avatarProfile: agent.avatarProfile ?? null,
+    badge,
+    badgeDetail,
+    taskChip,
+    bgChip,
+    deskStackCount,
   };
 };
 
@@ -4545,6 +4565,23 @@ export function OfficeScreen({
     aihubSeatingRef.current = next;
     return next;
   }, [state.agents, activeAdapterType]);
+  // Phase 4 — immersive Kanban feed: on the aihub floor, source the task board from the
+  // roster's live hub `tasks.items` (pending→todo, in_progress→in_progress, completed→done)
+  // so clicking the Kanban shows agents' REAL /tasks lists. This is a read-only source-switch:
+  // it never dispatches into the shared task store, so the existing store keeps running
+  // untouched (no churn, no persistence corruption). Off the aihub floor, pass through.
+  const aihubTaskCardsByStatus = useMemo(() => {
+    if (activeAdapterType !== "aihub") return null;
+    return buildAihubTaskCardsByStatus(
+      state.agents
+        .filter((agent) => agent.hub)
+        .map((agent) => ({
+          agentId: agent.agentId,
+          name: agent.name || agent.agentId,
+          hub: agent.hub,
+        })),
+    );
+  }, [state.agents, activeAdapterType]);
   const remoteOfficeVisible =
     remoteOfficeEnabled &&
     (remoteOfficeSourceKind === "presence_endpoint"
@@ -5057,7 +5094,7 @@ export function OfficeScreen({
             setKanbanInstallPromptOpen(true);
           }}
           taskBoardAgents={state.agents}
-          taskBoardCardsByStatus={taskBoard.cardsByStatus}
+          taskBoardCardsByStatus={aihubTaskCardsByStatus ?? taskBoard.cardsByStatus}
           taskBoardSelectedCard={taskBoard.selectedCard}
           taskBoardActiveRuns={taskBoard.activeRuns}
           taskBoardCronJobs={taskBoard.cronJobs}

@@ -113,6 +113,7 @@ import {
   AIHUB_DOOR_EXIT,
 } from "@/features/retro-office/objects/aihub/door";
 import { AihubPodRugs } from "@/features/retro-office/objects/aihub/PodRug";
+import { AihubDeskPaperStacks } from "@/features/retro-office/objects/aihub/DeskPaperStack";
 import {
   createWallItem,
   getItemBaseSize,
@@ -5362,6 +5363,14 @@ export function RetroOffice3D({
               visible={layoutPreset === "aihub"}
             />
 
+            {/* AI Hub desk in-trays: paper stack sized by the seated agent's open task count. */}
+            <AihubDeskPaperStacks
+              deskItems={deskItems}
+              deskAssignmentByDeskUid={deskAssignmentByDeskUid}
+              agents={agents}
+              visible={layoutPreset === "aihub"}
+            />
+
             {/* Wall pictures — procedural, no async loading. */}
             <SceneWallPictures showRemoteOffice={remoteOfficeEnabled} />
 
@@ -5845,6 +5854,9 @@ export function RetroOffice3D({
                     suppressSceneSpeechBubbles &&
                     standupMeeting?.currentSpeakerAgentId !== agent.id
                   }
+                  badge={"badge" in agent ? (agent.badge ?? null) : null}
+                  taskChip={"taskChip" in agent ? (agent.taskChip ?? null) : null}
+                  bgChip={"bgChip" in agent ? (agent.bgChip ?? null) : null}
                 />
               );
             })}
@@ -6233,6 +6245,10 @@ export function RetroOffice3D({
             hoveredAgentStatus?.isError ?? hoveredAgent.status === "error";
           const working =
             hoveredAgentStatus?.working ?? hoveredAgent.status === "working";
+          const blocked = hoveredAgent.badge === "blocked";
+          const blockedDetail = blocked
+            ? (hoveredAgent.badgeDetail?.trim() || null)
+            : null;
           return (
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none">
               <div className="flex items-center gap-3 bg-[#120e08]/95 backdrop-blur-sm border border-amber-800/30 rounded-lg px-4 py-2.5 shadow-xl">
@@ -6245,9 +6261,11 @@ export function RetroOffice3D({
                     className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#120e08] ${
                       isError
                         ? "bg-red-400"
-                        : working
-                          ? "bg-green-400"
-                          : "bg-yellow-400"
+                        : blocked
+                          ? "bg-amber-400"
+                          : working
+                            ? "bg-green-400"
+                            : "bg-yellow-400"
                     }`}
                   />
                 </div>
@@ -6258,6 +6276,11 @@ export function RetroOffice3D({
                   <div className="text-[10px] text-amber-600 uppercase tracking-widest">
                     {hoveredAgent.item}
                   </div>
+                  {blockedDetail ? (
+                    <div className="text-[9px] text-amber-400/90 max-w-[220px] mt-0.5">
+                      {blockedDetail}
+                    </div>
+                  ) : null}
                   {/* New Idea 8: last seen timestamp. */}
                   {(() => {
                     const ts = lastSeenByAgentId[hoveredAgent.id];
@@ -6275,12 +6298,14 @@ export function RetroOffice3D({
                   className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1 ${
                     isError
                       ? "bg-red-900/40 text-red-400 ring-1 ring-red-800/40"
-                      : working
-                        ? "bg-green-900/40 text-green-400 ring-1 ring-green-800/40"
-                        : "bg-yellow-900/30 text-yellow-500 ring-1 ring-yellow-800/30"
+                      : blocked
+                        ? "bg-amber-900/40 text-amber-400 ring-1 ring-amber-700/50"
+                        : working
+                          ? "bg-green-900/40 text-green-400 ring-1 ring-green-800/40"
+                          : "bg-yellow-900/30 text-yellow-500 ring-1 ring-yellow-800/30"
                   }`}
                 >
-                  {isError ? "error" : working ? "working" : "idle"}
+                  {isError ? "error" : blocked ? "blocked" : working ? "working" : "idle"}
                 </div>
               </div>
             </div>
