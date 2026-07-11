@@ -232,6 +232,7 @@ import {
 } from "@/lib/aihub/serviceErrands";
 import { useServicesSnapshot } from "@/lib/runtime/aihub/servicesStore";
 import { AihubServicesPanel } from "@/features/office/components/panels/AihubServicesPanel";
+import { AihubAgentCard } from "@/features/office/components/panels/AihubAgentCard";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -4148,6 +4149,47 @@ export function OfficeScreen({
     ],
   );
 
+  // Phase 6 (aihub interactions card). Nudge goes straight to the provider's chat.send
+  // (→ POST /api/live/nudge → `claude --resume`), bypassing handleChatSend's office-intent
+  // parsing so a nudge like "review the PR" resumes the session instead of walking the avatar,
+  // and immediately delivers instead of queueing behind a running-status agent. Throws on
+  // failure so the card can surface the reason.
+  const handleAihubNudge = useCallback(
+    async (sessionKey: string, message: string) => {
+      const trimmed = message.trim();
+      if (!trimmed) return;
+      await provider.call("chat.send", {
+        sessionKey,
+        message: trimmed,
+        idempotencyKey: randomUUID(),
+      });
+    },
+    [provider],
+  );
+
+  // Dismiss = the hub's 24h hide. Reuses claw3d's confirm idiom (window.confirm) but the direct
+  // provider agents.delete path, not the OpenClaw studio mutation lifecycle (whose record-delete
+  // machinery + copy don't fit a hub hide). The node drops from the roster on the next poll and
+  // the existing despawn/fade handles the rest.
+  const handleAihubDismiss = useCallback(
+    async (agentId: string, agentName: string) => {
+      const confirmed = window.confirm(
+        `Dismiss ${agentName}? Hides it from the office for 24h. The hub keeps running — nothing is deleted.`,
+      );
+      if (!confirmed) return;
+      try {
+        await provider.call("agents.delete", { agentId });
+        setSelectedChatAgentId((current) => (current === agentId ? null : current));
+        setChatOpen(false);
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : "Failed to dismiss the agent.",
+        );
+      }
+    },
+    [provider, setError],
+  );
+
   useEffect(() => {
     if (!pendingStandupRequest) return;
     if (lastStandupTriggerKeyRef.current === pendingStandupRequest.key) return;
@@ -5793,6 +5835,22 @@ export function OfficeScreen({
 
             <div className="flex min-w-0 flex-1 flex-col">
               {focusedChatAgent ? (
+                activeAdapterType === "aihub" ? (
+                  <AihubAgentCard
+                    agent={focusedChatAgent}
+                    canSend={status === "connected"}
+                    onNudge={(message) =>
+                      handleAihubNudge(focusedChatAgent.sessionKey, message)
+                    }
+                    onDismiss={() =>
+                      handleAihubDismiss(
+                        focusedChatAgent.agentId,
+                        focusedChatAgent.name,
+                      )
+                    }
+                    onClose={() => setChatOpen(false)}
+                  />
+                ) : (
                 <AgentChatPanel
                   agent={focusedChatAgent}
                   isSelected={false}
@@ -5852,6 +5910,7 @@ export function OfficeScreen({
                   }
                   onVoiceSend={handleVoiceSend}
                 />
+                )
               ) : focusedRemoteChatTarget && focusedRemoteChatState ? (
                 <RemoteAgentChatPanel
                   agentName={focusedRemoteChatTarget.name}

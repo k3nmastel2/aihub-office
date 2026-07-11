@@ -109,4 +109,10 @@ export type AgentHubMetadata = {
   bgTasks: HubBgTasks | null;
   canNudge: boolean;
   hubSessionId: string | null;
+  // Phase 6 (interactions card): current task text, recent activity, and staleness so the
+  // click-card can render status/age + a read-only synthesized history straight off the
+  // seed — no gateway round-trip, and it refreshes with every 3s poll.
+  task: string | null;
+  activity: HubActivityEntry[];
+  activityS: number;
 };

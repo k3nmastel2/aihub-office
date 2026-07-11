@@ -251,6 +251,9 @@ const seedFromNode = (
     bgTasks: node.bgTasks,
     canNudge: node.canNudge,
     hubSessionId: node.sessionId,
+    task: node.task,
+    activity: node.activity,
+    activityS: node.activityS,
   },
 });
 

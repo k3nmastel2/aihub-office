@@ -25,6 +25,9 @@ const hub = (over: Partial<AgentHubMetadata>): AgentHubMetadata => ({
   bgTasks: null,
   canNudge: false,
   hubSessionId: null,
+  task: null,
+  activity: [],
+  activityS: 0,
   ...over,
 });
 

@@ -5,6 +5,63 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 6 — Interactions (nudge / dismiss / read-only history)
 
+### Phase 6 status — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
+
+The office becomes INTERACTIVE. Clicking an aihub avatar already opens claw3d's chat slide-out
+(`handleAgentClick` → `onAgentChatSelect` → `focusedChatAgent`); on the aihub floor that slide-out
+now renders a purpose-built **interactions card** instead of the generic `AgentChatPanel`. One
+vertical slice: click → live agent card → nudge / dismiss / read-only history, all off the hub
+metadata.
+
+**Done (pure logic in `src/lib/aihub/agentCard.ts`, unit-tested; presentation in the card):**
+- **`src/lib/aihub/agentCard.ts` (new, pure):** `buildAgentCardViewModel(source)` derives the card
+  fields from identity + hub metadata (name, persona·model, tool label, Session/Subagent + tier,
+  status [working/idle/blocked/done, blocked wins], humanized age, current task text, blocked
+  detail, current tool, task-count + background summaries, project). `resolveNudgeAffordance(hub)`
+  → `{enabled, reason}` (enabled ONLY for a top-level Claude session with `canNudge` + a
+  `hubSessionId`; subagents/codex/gemini/hermes/no-session each get a specific disabled reason).
+  `resolveDismissAffordance(hub)` → enabled only when idle/done, else "dismiss once idle or done".
+  `buildAgentCardHistoryRows(hub)` synthesizes the read-only history (task checklist + up-to-4
+  activity lines + detail, fallback note) — parallels the provider's `chat.history` but off the
+  seed so it refreshes each 3s poll with no round-trip.
+- **`AgentHubMetadata` + `seedFromNode` (aihub namespace):** added `task`/`activity`/`activityS`
+  (already normalized on the node) so the card renders status/age + history straight off the seed.
+  The whole `hub` object already flows through hydration (Phase 1 whitelist), so no derivation edit.
+- **`src/features/office/components/panels/AihubAgentCard.tsx` (new):** renders the view-model
+  (status dot + pill, meta rows, task block, amber blocked panel, "Recent activity" history list),
+  a **nudge composer** (textarea + Send, ⌘/Ctrl+Enter, disabled with the affordance reason for
+  non-nudgeable agents, success/failure line), and a **Dismiss** button (gated on the dismiss
+  affordance, reason surfaced when disabled). Read-only from hub metadata; the two writes are lifted
+  to OfficeScreen.
+- **OfficeScreen wiring (additive, aihub-gated, FORK.md):** the slide-out swaps `<AgentChatPanel>`
+  → `<AihubAgentCard>` when `activeAdapterType === "aihub"`. `handleAihubNudge` calls
+  `provider.call("chat.send", …)` directly (→ POST /api/live/nudge → `claude --resume`), bypassing
+  `handleChatSend`'s office-intent parsing (so "review the PR" resumes the session, not walks the
+  avatar) and the running-status enqueue (a nudge delivers immediately); throws → card shows the
+  reason. `handleAihubDismiss` does `window.confirm` (claw3d's confirm idiom) + `provider.call(
+  "agents.delete", …)` then closes the card; the node drops on the next poll (existing despawn).
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 149/149 (15 new:
+`agentCard.test.ts` — view-model, affordance gating, history synthesis, + a seed→card pipeline
+assertion against `live-real.json`) · full `tests/unit/` → only the 5 known pre-existing failures
+(agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1) + the 1 known-flaky
+`useAgentSettingsMutationController` (passes 22/22 isolated), zero new.
+
+**Design notes / least-invasive choices:**
+- The 3D render path is untouched: `mapAgentToOffice`/`OfficeAgent`/`AgentModel` don't read the new
+  hub fields, and the card mounts only in the (gated) slide-out — no new churn in the T12-sensitive
+  hot path. The card re-renders on the 3s poll (live-updating), which is desirable and cheap.
+- Nudge goes direct-to-provider rather than through `chatController.handleSend` on purpose: the
+  controller enqueues instead of sending when the agent's inferred status is "running" (the common
+  case for a nudgeable active session), which would silently defer the nudge.
+
+**Next:** live Chrome self-verify against the real hub (REQUEST window + a cleared test nudge target
++ a cleared done dismiss target from "main"): card opens with correct fields on session-lead /
+subagent / hermes, nudge gating correct, one cleared live nudge + one cleared live dismiss with
+visible outcomes. Evidence → `docs/aihub/evidence/phase6/`.
+
+---
+
 **PHASE 5 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA confirmed: SERVICES HUD
 (live-updating, correct zones + in-use-by attribution) · HEALTH GLOW (bundle-source-verified
 ring component + live capture) · ERRAND functionality (hero-walker movement confirmed between
@@ -729,7 +786,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
-| 6 — Interactions | in progress | — |
+| 6 — Interactions | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/agentCard |
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |
 
