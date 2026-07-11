@@ -5,7 +5,37 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 4 — Badges + tasks
 
-### Phase 4 status — IMPLEMENTED (unit-green + typecheck-green; pending live Chrome pass)
+### OPS LESSONS (2026-07-11, learned the hard way during the Phase 4 live pass)
+1. **Restart the dev server after commits that touch module-level constants or add new
+   files.** HMR does NOT re-evaluate module-level constants (e.g. `DEFAULT_ACTIVE_FLOOR_ID`
+   in `floors.ts`) or reliably hot-load brand-new files/imports (DeskPaperStack, badges,
+   taskCards). A stale dev server served pre-Phase-3 floor code → cold-boot landed Lobby.
+2. **Before ANY relaunch, verify the port owner with `lsof -iTCP:3100 -sTCP:LISTEN` and kill
+   by PID.** Pattern-based `pkill -f 'next dev'` MISSES argv-relative commands (the process
+   argv was just `node server/index.js --dev`), so a stale server survived and kept :3100.
+   Multiple `next dev` against one repo clobber each other's `.next` output → the served
+   `layout.css?v=<ts>` version advances every ~30-50s and 404s → the page renders fully
+   UNSTYLED and never hydrates the aihub floor. (Symptom diagnosed live; fix = kill all by
+   PID, `rm .next/dev/lock`, start exactly one.)
+
+### Phase 4 LIVE CHROME PASS — BLOCKED by environmental WebGL eviction (T19); code proven otherwise
+On the fresh single-server bundle: switching to AI Hub Live connects (roster 34, GL healthy
+for ~14s), but (a) the office renders BLACK via the floor-switch path even with a healthy
+context (camera not re-framed on remount; the "Overview" preset didn't recover it), and
+(b) the WebGL context is then evicted (`THREE.WebGLRenderer: Context Lost`) within ~15-20s.
+Console shows ZERO errors from Phase 4 components — only the raw Context-Lost + the
+pre-existing THREE.Clock deprecation — so this is the T17/T1 GPU-eviction cluster (now
+**T19**: reproduces on the clean bundle, not just the corrupted multi-server one), NOT a
+Phase 4 regression. Cold-boot still lands Lobby despite persisted `activeFloorId:"aihub-live"`,
+so Phase 3's cold-boot render path (which DID show pods) isn't reachable in this Chrome.
+The immersive Kanban desk is additionally gated behind the task-manager skill / a 3D
+furniture-click (needs a rendered canvas). **Recommendation (per the tripwire policy): run
+the visual pass on a PROD build** (`npm run build && PORT=3100 npm start`) — prod removes the
+StrictMode double-canvas churn that is the likely eviction driver. Phase 4 code itself is
+proven by unit tests + typecheck + the headless live-data pipeline run (real `6/16` chip,
+capped desk stack, real Kanban titles from the live `/tasks`).
+
+### Phase 4 status — IMPLEMENTED (unit-green + typecheck-green; live 3D render blocked by T19 env eviction)
 
 The office now SHOWS each agent's work state. Four vertical pieces, all pure decision logic
 in `src/lib/aihub/` (unit-tested) with the coordinates/materials in the renderer:
