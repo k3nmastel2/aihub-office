@@ -1068,6 +1068,22 @@ agent-to-agent collaboration (SendMessage/teammate exchanges in hub activity), n
 Mapped: Phase 3 = workflow/group clustering within session pods · Phase 5 = library/research zone ·
 Phase 7 = behavior simulation (idle rotation, huddles, collaboration bubbles).
 
+## Standing rules (consolidated — READ BEFORE ANY BROWSER/FLEET WORK)
+
+1. **One Chrome driver at a time** (server-persisted settings churn under concurrent drivers).
+2. **CLOSE YOUR PREVIOUS TAB(S) BEFORE OPENING A NEW ONE** — every time, not just at handoff
+   (Ken, 2026-07-11: tab accumulation hoses the machine; multi-tab GPU pressure was T17/T19's
+   root). One office tab per driver, period.
+3. **HARD RELOAD (ignoreCache) at the start of every gate/verify pass** (stale-bundle near-miss).
+4. **Fleet hygiene** (Ken, 2026-07-11 — the 51-agent roster bloat): prefer UNNAMED disposables
+   for churn/test dummies (they self-expire in ~5 min); use a NAME only when camera-tracking
+   needs it, and SHUT THE AGENT DOWN immediately after its window (named teammates otherwise
+   park in the roster forever). The orchestrator sweeps the fleet at every phase close.
+5. Named disposables only for dismiss tests (unnamed-persona node ids are REUSED — 24h collateral).
+6. A prior permission denial stands until Ken authorizes — escalate, never retry.
+7. lsof-verify the :3100 port owner + kill by PID before any server relaunch; single instance only.
+8. Dev-server restart required after commits touching module-level constants/new files.
+
 ## Session notes
 
 - 2026-07-10: Phase 0 started. Fork/clone/env/install done inline by orchestrator (Fable).
