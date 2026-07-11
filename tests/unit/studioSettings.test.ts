@@ -17,7 +17,7 @@ describe("studio settings normalization", () => {
     const normalized = normalizeStudioSettings(null);
     expect(normalized.version).toBe(1);
     expect(normalized.gateway).toBeNull();
-    expect(normalized.activeFloorId).toBe("lobby");
+    expect(normalized.activeFloorId).toBe("aihub-live");
     expect(normalized.focused).toEqual({});
     expect(normalized.avatars).toEqual({});
     expect(normalized.office).toEqual({});
@@ -278,7 +278,8 @@ describe("studio settings normalization", () => {
     const merged = mergeStudioSettings(normalized, {
       activeFloorId: "training",
     });
-    expect(resolveStudioActiveFloorId(merged)).toBe("lobby");
+    // "training" is disabled → resolves to the home floor (demo lobby retired).
+    expect(resolveStudioActiveFloorId(merged)).toBe("aihub-live");
   });
 
   it("normalizes task board cards per gateway", () => {

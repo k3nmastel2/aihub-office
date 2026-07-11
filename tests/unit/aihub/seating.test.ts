@@ -28,11 +28,14 @@ const sub = (
   agentId: string,
   parentAgentId: string,
   hubStatus: HubNodeStatus = "active",
+  focus: { workflow?: string | null; group?: string | null } = {},
 ): SeatingAgentInput => ({
   agentId,
   kind: "subagent",
   parentAgentId,
   hubStatus,
+  workflow: focus.workflow ?? null,
+  group: focus.group ?? null,
 });
 
 // Build `podCount` pods, each a lead anchor + `membersPerPod` member desks, with uids
@@ -219,6 +222,93 @@ describe("computeAihubSeating — stability", () => {
     expect(after["p0-lead"]).toBe("s1");
     expect(after["p0-m1"]).toBe("a1"); // existing member unmoved
     expect(after["p0-m2"]).toBe("a2"); // new member fills the next free desk
+  });
+});
+
+describe("computeAihubSeating — focus clustering", () => {
+  it("seats workflow-mates in adjacent desks ahead of loose members", () => {
+    // a1 is earliest-seen but loose; a2+a3 share a workflow → they take the first desks.
+    const seating = computeAihubSeating(
+      [
+        lead("s1"),
+        sub("a1", "s1", "active"),
+        sub("a2", "s1", "active", { workflow: "wf-1" }),
+        sub("a3", "s1", "active", { workflow: "wf-1" }),
+      ],
+      makePods(1),
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4 } },
+    );
+    expect(seating["p0-m1"]).toBe("a2");
+    expect(seating["p0-m2"]).toBe("a3");
+    expect(seating["p0-m3"]).toBe("a1");
+  });
+
+  it("clusters group-mates when no workflow is present", () => {
+    const seating = computeAihubSeating(
+      [
+        lead("s1"),
+        sub("a1", "s1", "active"),
+        sub("a2", "s1", "active", { group: "g-1" }),
+        sub("a3", "s1", "active", { group: "g-1" }),
+      ],
+      makePods(1),
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4 } },
+    );
+    expect(seating["p0-m1"]).toBe("a2");
+    expect(seating["p0-m2"]).toBe("a3");
+    expect(seating["p0-m3"]).toBe("a1");
+  });
+
+  it("prioritizes workflow over group over first-seen", () => {
+    const seating = computeAihubSeating(
+      [
+        lead("s1"),
+        sub("a1", "s1", "active", { group: "g-1" }),
+        sub("a2", "s1", "active", { workflow: "wf-1" }),
+        sub("a3", "s1", "active", { workflow: "wf-1" }),
+      ],
+      makePods(1),
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4 } },
+    );
+    // workflow cluster (a2,a3) first, then the group member (a1).
+    expect(seating["p0-m1"]).toBe("a2");
+    expect(seating["p0-m2"]).toBe("a3");
+    expect(seating["p0-m3"]).toBe("a1");
+  });
+
+  it("lets stability win over adjacency (sticky seats are not reshuffled)", () => {
+    const pods = makePods(1);
+    const before = computeAihubSeating([lead("s1"), sub("a1", "s1")], pods, {
+      firstSeenByAgentId: { s1: 1, a1: 2 },
+    });
+    expect(before["p0-m1"]).toBe("a1"); // loose member seated first
+    const after = computeAihubSeating(
+      [
+        lead("s1"),
+        sub("a1", "s1"),
+        sub("a2", "s1", "active", { workflow: "wf-1" }),
+        sub("a3", "s1", "active", { workflow: "wf-1" }),
+      ],
+      pods,
+      {
+        firstSeenByAgentId: { s1: 1, a1: 2, a2: 3, a3: 4 },
+        previousAssignment: before,
+      },
+    );
+    // a1 keeps its desk despite the workflow pair arriving; the pair fills the rest.
+    expect(after["p0-m1"]).toBe("a1");
+    expect(after["p0-m2"]).toBe("a2");
+    expect(after["p0-m3"]).toBe("a3");
+  });
+
+  it("falls back to first-seen when no focus fields are present (today's payload)", () => {
+    const seating = computeAihubSeating(
+      [lead("s1"), sub("a2", "s1"), sub("a1", "s1")],
+      makePods(1),
+      { firstSeenByAgentId: { s1: 1, a1: 2, a2: 3 } },
+    );
+    expect(seating["p0-m1"]).toBe("a1"); // earliest first-seen
+    expect(seating["p0-m2"]).toBe("a2");
   });
 });
 

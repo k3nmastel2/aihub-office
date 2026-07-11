@@ -76,6 +76,7 @@ import {
   createFloorRosterCache,
 } from "@/lib/office/floorRoster";
 import {
+  DEFAULT_ACTIVE_FLOOR_ID,
   getOfficeFloor,
   listOfficeFloorsForProvider,
   resolveActiveOfficeFloorId,
@@ -1133,7 +1134,9 @@ export function OfficeScreen({
   const [deskAssignmentByDeskUid, setDeskAssignmentByDeskUid] = useState<
     Record<string, string>
   >({});
-  const [activeFloorId, setActiveFloorId] = useState<FloorId>("lobby");
+  const [activeFloorId, setActiveFloorId] = useState<FloorId>(
+    DEFAULT_ACTIVE_FLOOR_ID,
+  );
   const [pendingFloorRuntimeSwitch, setPendingFloorRuntimeSwitch] =
     useState<PendingFloorRuntimeSwitch | null>(null);
   const previousGatewayStatusRef = useRef<"disconnected" | "connecting" | "connected">(
@@ -1143,7 +1146,7 @@ export function OfficeScreen({
   const [floorRosterCache, setFloorRosterCache] = useState(() =>
     createFloorRosterCache(),
   );
-  const activeFloorIdRef = useRef<FloorId>("lobby");
+  const activeFloorIdRef = useRef<FloorId>(DEFAULT_ACTIVE_FLOOR_ID);
   const floorRosterCacheRef = useRef(floorRosterCache);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1505,10 +1508,18 @@ export function OfficeScreen({
       }
 
       // Guard: if this is a runtime floor and there's no gateway URL to connect to,
-      // bail back to lobby rather than entering a connect-hang limbo state.
-      if (floor.kind === "runtime" && !nextGatewayUrl.trim()) {
-        setActiveFloorId("lobby");
-        settingsCoordinator.schedulePatch({ activeFloorId: "lobby" }, 0);
+      // bail to the home floor rather than entering a connect-hang limbo state. (The
+      // demo lobby is retired; aihub-live self-heals its URL so it won't re-trigger this.)
+      if (
+        floor.kind === "runtime" &&
+        !nextGatewayUrl.trim() &&
+        floor.id !== DEFAULT_ACTIVE_FLOOR_ID
+      ) {
+        setActiveFloorId(DEFAULT_ACTIVE_FLOOR_ID);
+        settingsCoordinator.schedulePatch(
+          { activeFloorId: DEFAULT_ACTIVE_FLOOR_ID },
+          0,
+        );
         setAgentsLoaded(true);
         return;
       }
@@ -4521,6 +4532,8 @@ export function OfficeScreen({
         kind: agent.hub!.kind,
         parentAgentId: agent.hub!.parentAgentId,
         hubStatus: agent.hub!.hubStatus,
+        workflow: agent.hub!.workflow,
+        group: agent.hub!.group,
       }));
     const next = computeAihubSeating(seatingAgents, AIHUB_POD_DESK_SLOTS, {
       firstSeenByAgentId: firstSeenByAgentIdRef.current,

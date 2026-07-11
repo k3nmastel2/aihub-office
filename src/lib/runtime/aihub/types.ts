@@ -49,6 +49,7 @@ export type HubLiveNode = {
   canNudge: boolean;
   sessionId: string | null;
   group: string | null;
+  workflow: string | null;
   taskCounts: HubTaskCounts | null;
   taskItems: HubTaskItem[] | null;
   bgTasks: HubBgTasks | null;
@@ -92,6 +93,10 @@ export type AgentHubMetadata = {
   parentAgentId: string | null;
   tier: number;
   group: string | null;
+  // Shared focus keys (Phase 3 pod sub-clustering): agents working the same workflow /
+  // group sit adjacent within their session pod. Both are currently null in the live
+  // `/api/live` payload (the hub does not yet emit them) — the clustering is inert until it does.
+  workflow: string | null;
   kind: "session" | "subagent";
   tool: string;
   hubStatus: HubNodeStatus;

@@ -40,9 +40,8 @@ describe("office floor registry", () => {
     });
   });
 
-  it("lists only enabled floors by default", () => {
+  it("lists only enabled floors by default (demo lobby retired)", () => {
     expect(listEnabledOfficeFloors().map((floor) => floor.id)).toEqual([
-      "lobby",
       "openclaw-ground",
       "hermes-first",
       "local-runtime",
@@ -76,15 +75,19 @@ describe("office floor registry", () => {
     expect(listOfficeFloorsForZone("outside").map((floor) => floor.id)).toEqual(["campus"]);
   });
 
-  it("resolves active floor ids against enabled floors", () => {
-    expect(DEFAULT_ACTIVE_FLOOR_ID).toBe("lobby");
+  it("resolves active floor ids against enabled floors (aihub-live is home)", () => {
+    expect(DEFAULT_ACTIVE_FLOOR_ID).toBe("aihub-live");
     expect(resolveActiveOfficeFloorId("hermes-first")).toBe("hermes-first");
-    expect(resolveActiveOfficeFloorId("training")).toBe("lobby");
-    expect(resolveActiveOfficeFloorId(null)).toBe("lobby");
+    // Disabled floors (training) and the retired demo lobby fall back to the home floor.
+    expect(resolveActiveOfficeFloorId("training")).toBe("aihub-live");
+    expect(resolveActiveOfficeFloorId("lobby")).toBe("aihub-live");
+    expect(resolveActiveOfficeFloorId(null)).toBe("aihub-live");
   });
 
-  it("cycles across enabled floors only", () => {
-    expect(getAdjacentEnabledOfficeFloorId("lobby", 1)).toBe("openclaw-ground");
-    expect(getAdjacentEnabledOfficeFloorId("lobby", -1)).toBe("custom-second");
+  it("cycles across enabled floors only (lobby excluded)", () => {
+    expect(getAdjacentEnabledOfficeFloorId("aihub-live", 1)).toBe("custom-second");
+    expect(getAdjacentEnabledOfficeFloorId("aihub-live", -1)).toBe("claw3d-runtime");
+    // Wraps around the enabled set, which no longer contains the lobby.
+    expect(getAdjacentEnabledOfficeFloorId("openclaw-ground", -1)).toBe("custom-second");
   });
 });

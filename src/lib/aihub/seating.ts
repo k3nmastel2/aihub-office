@@ -26,6 +26,11 @@ export type SeatingAgentInput = {
   // session tree is reconstructed from the parent chain, not a shared session id.
   parentAgentId: string | null;
   hubStatus: HubNodeStatus | null;
+  // Shared focus keys: within a pod, members sharing a workflow (then a group) sit
+  // adjacent, ahead of loose members. Both are optional/nullable — when absent the fill
+  // falls back to first-seen order (the current live payload emits neither).
+  workflow?: string | null;
+  group?: string | null;
 };
 
 // One desk within a pod. `seat: "lead"` is the pod anchor (a session lead sits here);
@@ -113,6 +118,47 @@ export const computeAihubSeating = (
     return a < b ? -1 : a > b ? 1 : 0;
   };
 
+  // --- Focus clustering: workflow-mates together, then group-mates, then loose. Applied
+  // only to the fill order of not-yet-seated members, so it refines adjacency WITHOUT
+  // overriding sticky seats (stability wins over adjacency). ---
+  const workflowByAgent = new Map<string, string | null>();
+  const groupByAgent = new Map<string, string | null>();
+  for (const agent of agents) {
+    workflowByAgent.set(agent.agentId, agent.workflow ?? null);
+    groupByAgent.set(agent.agentId, agent.group ?? null);
+  }
+  const orderByFocusThenFirstSeen = (ids: string[]): string[] => {
+    // tier 0 = shares a workflow, 1 = shares a group, 2 = loose (own singleton).
+    const tierOf = (id: string): 0 | 1 | 2 =>
+      workflowByAgent.get(id) ? 0 : groupByAgent.get(id) ? 1 : 2;
+    const clusterKeyOf = (id: string): string => {
+      const workflow = workflowByAgent.get(id);
+      if (workflow) return `w:${workflow}`;
+      const group = groupByAgent.get(id);
+      if (group) return `g:${group}`;
+      return `x:${id}`;
+    };
+    const clusters = new Map<string, string[]>();
+    for (const id of ids) {
+      const key = clusterKeyOf(id);
+      const bucket = clusters.get(key);
+      if (bucket) bucket.push(id);
+      else clusters.set(key, [id]);
+    }
+    return [...clusters.entries()]
+      .map(([key, members]) => {
+        const sorted = [...members].sort(byFirstSeen);
+        return { key, sorted, tier: tierOf(sorted[0]), earliest: firstSeen(sorted[0]) };
+      })
+      .sort(
+        (a, b) =>
+          a.tier - b.tier ||
+          a.earliest - b.earliest ||
+          (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+      )
+      .flatMap((cluster) => cluster.sorted);
+  };
+
   // --- Sticky pod ownership: which session held each pod last poll (by any of its
   // desks, lead first) — so a lead keeps its pod even after a lower-index pod frees. ---
   const podForRoot = new Map<string, number>();
@@ -172,8 +218,9 @@ export const computeAihubSeating = (
       if (idx >= 0) freeMemberDesks.splice(idx, 1);
     }
 
-    // Fill pass: remaining members take remaining desks in first-seen order.
-    for (const member of pool) {
+    // Fill pass: remaining members take remaining desks, focus-clustered (workflow-mates,
+    // then group-mates, then loose by first-seen) so shared-focus members land adjacent.
+    for (const member of orderByFocusThenFirstSeen(pool)) {
       if (seated.has(member)) continue;
       const deskUid = freeMemberDesks.shift();
       if (!deskUid) break; // overflow member → roam near the pod

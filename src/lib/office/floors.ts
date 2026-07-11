@@ -43,7 +43,9 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
     provider: "demo",
     kind: "lobby",
     zone: "building",
-    enabled: true,
+    // Demo floor retired (Ken): the demo gateway is not run. Kept in the tree for
+    // upstream mergeability but never shown/selected — fresh state lands on aihub-live.
+    enabled: false,
     sortOrder: 0,
     runtimeProfileId: null,
   },
@@ -148,7 +150,9 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
 ] as const;
 
-export const DEFAULT_ACTIVE_FLOOR_ID: FloorId = "lobby";
+// Demo/lobby retired — aihub-live is the home floor (auto-connects to the hub, and its
+// URL self-heals so it never hits the no-URL bail).
+export const DEFAULT_ACTIVE_FLOOR_ID: FloorId = "aihub-live";
 
 const FLOOR_BY_ID: Readonly<Record<FloorId, FloorDefinition>> = OFFICE_FLOORS.reduce(
   (acc, floor) => {
@@ -172,6 +176,11 @@ export const listOfficeFloorsForZone = (zone: FloorZone): FloorDefinition[] =>
 export const resolveActiveOfficeFloorId = (floorId: FloorId | null | undefined): FloorId => {
   if (floorId && FLOOR_BY_ID[floorId]?.enabled) {
     return floorId;
+  }
+  // Prefer the home floor (aihub-live) for a disabled/missing request; only fall to the
+  // first enabled floor if the default itself is somehow disabled.
+  if (FLOOR_BY_ID[DEFAULT_ACTIVE_FLOOR_ID]?.enabled) {
+    return DEFAULT_ACTIVE_FLOOR_ID;
   }
   return listEnabledOfficeFloors()[0]?.id ?? DEFAULT_ACTIVE_FLOOR_ID;
 };

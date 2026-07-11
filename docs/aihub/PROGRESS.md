@@ -47,10 +47,30 @@ never reached desks — assigned agents now walk to their pod desk via the exist
   keeps pod after earlier-pod session leaves; new member doesn't move existing members) +
   real-layout sanity (6 pods × 4, live session+3 subagents → one pod).
 
-**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 66/66 green
-(15 new seating + 22 lifecycle unchanged after the refactor) · full `tests/unit/` → only
-the 5 known pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2,
-agentFleetHydration ×1), zero new.
+**Focus clustering (Ken's vision guidance, folded in):** within a session pod, members
+sharing a `hub.workflow` id sit adjacent, then `hub.group`, then remaining by first-seen
+— a pure fill-order refinement (`orderByFocusThenFirstSeen`) applied ONLY to not-yet-
+seated members, so sticky seats are never reshuffled (stability wins over adjacency, per
+the guidance). `workflow` threaded additively through `types.ts`/`snapshot.ts` alongside
+the existing `group`. **IMPORTANT — currently inert:** the live `/api/live` subagent
+nodes carry only 11 keys (`activity_s,id,kind,label,model,persona,project,status,task,
+tier,tool`) — NEITHER `group` NOR `workflow` is present, so both normalize to null and
+clustering falls back to first-seen until the hub emits them. Surfaced to the team-lead.
+The "huddle" concept (multiple agents collaborating on ONE task gather around one desk —
+choreography, not seating) is recorded as **Phase 7 scope**, not built now.
+
+**Demo floor retired (Ken's addendum):** the demo gateway is not run; `floors.ts` lobby
+is `enabled:false` (kept in the tree for upstream mergeability, never shown), the home
+floor / `DEFAULT_ACTIVE_FLOOR_ID` is now `aihub-live` (auto-connects, self-heals its URL),
+and every fallback (initial floor state, persisted-floor resolve, runtime no-URL bail)
+lands on aihub-live instead of the lobby — verified: a disabled/missing floor request
+resolves to aihub-live, and the bail skips when already there so it can't self-loop.
+officeFloors + studioSettings tests updated for the intentional new defaults.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/ tests/unit/officeFloors.test.ts` →
+78/78 green (20 seating incl. 5 focus-clustering; 22 lifecycle unchanged; 7 officeFloors
+updated) · full `tests/unit/` → only the 5 known pre-existing failures
+(agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration ×1), zero new.
 
 **Not yet captured live:** the Chrome multi-team pass (pods + rugs, leads at anchors,
 members clustered, crowd reaching desks) — pending a driver window from the orchestrator.
