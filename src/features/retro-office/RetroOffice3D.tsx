@@ -2986,6 +2986,7 @@ export function RetroOffice3D({
     furnitureRef.current = furniture;
   }, [furniture]);
 
+
   // Phase 7b: auto-start a ping-pong rally for the two idle agents the scheduler paired.
   // Mirrors the manual table-click pairing (`handleDeskClick`, item.type === "pingpong")
   // minus the camera jump. `aihubPingPongPair` is re-emitted each ping-pong rotation bucket,

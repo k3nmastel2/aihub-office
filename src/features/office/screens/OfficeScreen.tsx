@@ -4723,7 +4723,12 @@ export function OfficeScreen({
           !leavingInPlaceByAgentId[agent.agentId],
       )
       .map((agent) => agent.agentId);
-    const plan = computeIdleBehaviors(idleIds, animationNowMs);
+    // gymPercent 0: the aihub gym workout target is currently UNREACHABLE via A* from the
+    // bullpen (planPath returns an empty path → gym-held agents freeze at the door), so we do
+    // NOT route idle agents to the gym on this layout — they lounge/roam instead. Re-enable once
+    // the aihub gym is made pathable (multi-stage route like the service errands). The scheduler
+    // keeps ping-pong + lounge, which path correctly.
+    const plan = computeIdleBehaviors(idleIds, animationNowMs, { gymPercent: 0 });
     const nextGym = plan.gymHoldByAgentId as Record<string, boolean>;
     const gymHold = shallowEqualBooleanRecord(nextGym, aihubIdleGymHoldRef.current)
       ? aihubIdleGymHoldRef.current

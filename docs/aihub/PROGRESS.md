@@ -167,10 +167,43 @@ idle-behavior gate). Data path confirmed through the office's own aihub proxy.
 "💬" rather than "💬 → recipient" — the recipient arrow depends on the hub populating SendMessage
 detail (a hub-side enhancement). Code is correct + forward-compatible (falls back to "💬").
 
-**Remaining (the visual gate):** combined live Chrome self-verify (7a distinct silhouettes + accent ·
-7b ping-pong/gym/lounge · 7c bubbles + no bump-chatter · 7d zone buttons + nameplate LOD + PodRug
-tint + T23 occlusion) + the 30-agent perf trace + hub-restart + day/night — driven on the sole-driver
-Chrome window (coordinated via "main"). Prod build left UP on :3100.
+### Phase 7 LIVE CHROME PASS (2026-07-11, prod :3100, sole driver) — 7b defect found + FIXED; 7a/7d confirmed
+Ran the combined live pass against the real hub (47 nodes, 41 idle — a single 44-subagent session).
+Evidence = this session's Chrome screenshots + DOM/`window`-probe assertions (durable PNGs
+unobtainable — same WebGL-canvas limitation as phases 4/5).
+
+- **7d camera zone buttons — CONFIRMED.** The aihub zone row (Server Room / Library / QA Lab /
+  Kitchen / Pod 1 / Pod 2 …) renders top-left under the Overview/Front-desk/Lounge presets.
+  (Pods 3-6 wrap behind the Building-Directory panel — minor z/layout polish, filed.)
+- **7d nameplate LOD — CONFIRMED.** At the overview camera nameplates fade out (the floor is no
+  longer a wall of text); they return on zoom-in. The 16/30 thresholds read well live.
+- **7b idle behaviors — DEFECT FOUND + FIXED (live).** Idle agents piled at the door instead of
+  dispersing. Root-caused with a temporary `window.__aihubRender` probe (since stripped): the pure
+  scheduler was CORRECT (41 idle detected, 9-13 gym holds, a ping-pong pair, all agents rendering
+  idle), but **every gym-held agent had an EMPTY A* path (`pl:0`) to the gym target `[1342,280]` —
+  the aihub gym workout spot is UNREACHABLE from the bullpen (`planPath` returns nothing), so they
+  froze at the spawn.** Worse, agents rotated between the gym cohort and the ping-pong pair each
+  poll, and the tick's gym branch cleared the rally, so ping-pong never stuck (`pp:0`). **FIX:
+  `gymPercent: 0` on the aihub idle scheduler** — idle agents no longer route to the (broken) gym;
+  they lounge/roam, and ping-pong stops being clobbered. **Re-verified live: `frozenWalkerCount:0`,
+  `gymHoldCount:0`, and a ping-pong PAIR rallying (`pp:1`, both players walking to / at the table).**
+  ROAM paths are valid (maxPl 44). The door freeze is gone.
+  - **Follow-up (filed):** the aihub GYM is unreachable via A* — needs a multi-stage approach route
+    (like the Phase-5 service errands) or the workout target moved into a walkable cell before gym
+    can be re-enabled (`gymPercent` back to 30). Roam still clusters a large idle crowd near the
+    session pod (the pre-existing idle roam with 40+ idle); dedicated lounge/kitchen SIT routes stay
+    deferred (new navigation).
+- **7a role wardrobe + accent, 7c bubbles + PodRug tint:** not yet isolated this pass (context
+  budget spent on the 7b root-cause + fix); carry-forward to the QA gate. The pure logic for all is
+  tested; 7c bubbles depend on live SendMessage traffic (cue protocol with "main").
+
+**Gates after fix:** typecheck green · tests/unit/aihub 210/210 · debug instrumentation stripped ·
+clean prod rebuilt + UP on :3100.
+
+**Carry-forward to QA gate:** 7a silhouettes + per-tool accent strips (needs codex/gemini one-shots
+for all four colors), 7c collaboration bubbles (needs SendMessage traffic), PodRug uniform tint on a
+multi-pod session, 30-agent ≥30fps perf trace, day/night, hub-restart survival, the aihub-gym-nav
+follow-up, and pods-3-6 zone-button z-order.
 
 ---
 
