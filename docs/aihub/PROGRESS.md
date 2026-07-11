@@ -18,24 +18,59 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
    UNSTYLED and never hydrates the aihub floor. (Symptom diagnosed live; fix = kill all by
    PID, `rm .next/dev/lock`, start exactly one.)
 
-### Phase 4 LIVE CHROME PASS — BLOCKED by environmental WebGL eviction (T19); code proven otherwise
-On the fresh single-server bundle: switching to AI Hub Live connects (roster 34, GL healthy
-for ~14s), but (a) the office renders BLACK via the floor-switch path even with a healthy
-context (camera not re-framed on remount; the "Overview" preset didn't recover it), and
-(b) the WebGL context is then evicted (`THREE.WebGLRenderer: Context Lost`) within ~15-20s.
-Console shows ZERO errors from Phase 4 components — only the raw Context-Lost + the
-pre-existing THREE.Clock deprecation — so this is the T17/T1 GPU-eviction cluster (now
-**T19**: reproduces on the clean bundle, not just the corrupted multi-server one), NOT a
-Phase 4 regression. Cold-boot still lands Lobby despite persisted `activeFloorId:"aihub-live"`,
-so Phase 3's cold-boot render path (which DID show pods) isn't reachable in this Chrome.
-The immersive Kanban desk is additionally gated behind the task-manager skill / a 3D
-furniture-click (needs a rendered canvas). **Recommendation (per the tripwire policy): run
-the visual pass on a PROD build** (`npm run build && PORT=3100 npm start`) — prod removes the
-StrictMode double-canvas churn that is the likely eviction driver. Phase 4 code itself is
-proven by unit tests + typecheck + the headless live-data pipeline run (real `6/16` chip,
-capped desk stack, real Kanban titles from the live `/tasks`).
+### Phase 4 LIVE CHROME PASS — DONE on a PROD build (2026-07-11); 3/4 visually confirmed, 1 finding
+Ran the visual pass on a production build (`npm run build && PORT=3100 npm start`, single
+verified instance) after the dev-server pass was blocked by env WebGL eviction. Results
+(evidence = this session's Chrome screenshots; the WebGL canvas has no `preserveDrawingBuffer`
+so `toDataURL`/download capture returns blank — durable PNGs aren't obtainable via the tools,
+and the MCP screenshot path isn't shell-accessible, so the transcript screenshots ARE the record):
 
-### Phase 4 status — IMPLEMENTED (unit-green + typecheck-green; live 3D render blocked by T19 env eviction)
+- **Nameplate chips — CONFIRMED.** Live agents render the green task pill (`8/18` = remaining/
+  total) + the blue background pill (cog-hint ring + running count `1`), font-safe geometry,
+  exactly as designed. Values track the real hub `tasks` counts.
+- **Blocked badge — CONFIRMED** via a tab-only fetch-intercept (documented below): the amber
+  warning-triangle billboard + `!` floats above the head, the status dot goes amber, and the
+  hover tooltip shows a `BLOCKED` amber pill + the hub `detail` line ("rate limited …"). It
+  appears/clears correctly as the mocked `badge` toggles (data-driven), then removed cleanly.
+- **Office + pods render on prod — CONFIRMED.** The aihub bullpen, the 6 tinted pod rugs
+  (Phase 3), all rooms, ping-pong, and huddled agents all draw. The earlier dev "black scene"
+  was just the camera zoomed into empty space on a floor-switch mount — scrolling out reveals
+  the full office; NOT a render failure.
+- **Desk paper stacks — NOT visually confirmed (FINDING, P1 follow-up).** No paper stack is
+  visible on any pod desk, even at close camera zoom. The DATA path is proven (pod rugs render
+  from the same `deskAssignmentByDeskUid`; chips prove `deskStackCount` data exists) and the
+  sizing is unit-tested, so this is a RENDER-VISIBILITY defect in `DeskPaperStack.tsx` — most
+  likely `DESK_SURFACE_Y=0.61` is wrong for the scaled desk GLB (stacks land inside/under the
+  desk) and/or `SHEET_W/HEIGHT` too small. Fix approach for the follow-up: temporarily render an
+  oversized bright marker + log desk world positions to pin the surface height, then correct
+  the Y/offset/size. (I could not diagnose live — the R3F scene isn't reachable via `canvas.__r3f`
+  or a fiber walk in the minified prod bundle.)
+- **Immersive Kanban — SKILL-GATED (FINDING).** The task-board source-switch is proven headless
+  (roster `tasks.items` → 6 todo / 2 in_progress / 6 done with real titles), but the office
+  gates the Kanban desk behind the TASK-MANAGER skill: the top-left "KANBAN BOARD" control opens
+  a "Kanban Skill Not Installed" prompt. So the real hub tasks can't be SURFACED in the UI until
+  the skill is installed or the gate is relaxed for the aihub floor. Recommend the team decide
+  whether to relax the gate on aihub (surfacing = a separate finding, per the team-lead).
+
+**T19 PROD DATA (task #17): DEV-ONLY — RESOLVED on prod.** On the prod build the canvas does NOT
+evict: GL stayed healthy across ~several minutes of interaction AND survived a floor-switch
+away (AI Hub Live → Custom Floor) and back (→ AI Hub Live), re-rendering the office each time
+(`glLost:false` at every checkpoint). The dev-build eviction (~15-20s) is the StrictMode
+double-canvas churn; T19 folds under T17 (dev-harness), not a shipped defect.
+
+**T20 PROD DATA (task #18): REPRODUCES on prod — real bug.** Cold-boot of the prod build STILL
+lands on Lobby/DEMO (0 agents, disconnected) despite `/api/studio` showing the persisted
+`activeFloorId:"aihub-live"` / `adapter:"aihub"`. Confirms T20 is a genuine floor-resolution bug
+(Phase 3 `048e2b4` demo-retirement — the disabled-Lobby request isn't resolving to aihub-live on
+the client cold path), not a dev/HMR artifact. Workaround: switch to AI Hub Live via the UI.
+
+**Blocked-badge tab-only mock (for QA to reproduce — NOT committed):** in the office devtools
+console, wrap `window.fetch` so `/api/runtime/aihub` snapshot responses get `node.badge="blocked"`
++ `node.detail="…"` on every non-hub node, return a rewritten `Response`; the 3s provider poll
+then renders the badge. `window.__unblock()` restores the original fetch. (Full snippet was run
+live this session.)
+
+### Phase 4 status — IMPLEMENTED; PROD-verified (chips + blocked badge + pods); paper-stack render defect (P1) + Kanban skill-gate (finding) open
 
 The office now SHOWS each agent's work state. Four vertical pieces, all pure decision logic
 in `src/lib/aihub/` (unit-tested) with the coordinates/materials in the renderer:
