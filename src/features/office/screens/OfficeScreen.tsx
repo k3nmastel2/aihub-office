@@ -183,6 +183,7 @@ import {
 import { useFinalizedAssistantReplyListener } from "@/hooks/useFinalizedAssistantReplyListener";
 import { useStudioOfficePreference } from "@/hooks/useStudioOfficePreference";
 import { isRemoteOfficeAgentId } from "@/features/retro-office/core/district";
+import { AIHUB_POD_DESK_SLOTS } from "@/features/retro-office/core/furnitureDefaults";
 import { useStudioVoiceRepliesPreference } from "@/hooks/useStudioVoiceRepliesPreference";
 import {
   useVoiceRecorder,
@@ -207,6 +208,10 @@ import {
   shallowEqualBooleanRecord,
   type SessionGroupSnapshot,
 } from "@/lib/aihub/lifecycle";
+import {
+  computeAihubSeating,
+  shallowEqualStringRecord,
+} from "@/lib/aihub/seating";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -707,6 +712,7 @@ const MAX_REMOTE_MESSAGE_CHARS = 2_000;
 
 // Stable empty singletons + cap for the Phase 2 aihub lifecycle maps/cues (below).
 const EMPTY_BOOLEAN_RECORD: Record<string, boolean> = {};
+const EMPTY_STRING_RECORD: Record<string, string> = {};
 const EMPTY_CLEANING_CUES: OfficeCleaningCue[] = [];
 const SESSION_LEAVE_CUE_LIMIT = 24;
 
@@ -4493,6 +4499,39 @@ export function OfficeScreen({
       );
     }
   }, [state.agents]);
+  // Phase 3 — pod seating: fold the aihub roster into session teams and assign each
+  // agent a pod desk (leads → anchors, subagents → member desks, done → released). The
+  // result feeds `deskAssignmentByDeskUid` for the aihub floor, bypassing (not breaking)
+  // the manual desk picker + studio persistence. Reuses the Phase 2 first-seen ref
+  // (populated by the leaving memo above) and keeps the previous poll's assignment sticky
+  // so leads don't swap pods across polls. Ref-stabilized so RetroOffice3D's agent-tick
+  // deps stay quiet when seating is unchanged (T12 discipline).
+  const aihubSeatingRef = useRef<Record<string, string>>(EMPTY_STRING_RECORD);
+  const aihubSeatingByDeskUid = useMemo(() => {
+    if (activeAdapterType !== "aihub") {
+      if (aihubSeatingRef.current !== EMPTY_STRING_RECORD) {
+        aihubSeatingRef.current = EMPTY_STRING_RECORD;
+      }
+      return EMPTY_STRING_RECORD;
+    }
+    const seatingAgents = state.agents
+      .filter((agent) => agent.hub)
+      .map((agent) => ({
+        agentId: agent.agentId,
+        kind: agent.hub!.kind,
+        parentAgentId: agent.hub!.parentAgentId,
+        hubStatus: agent.hub!.hubStatus,
+      }));
+    const next = computeAihubSeating(seatingAgents, AIHUB_POD_DESK_SLOTS, {
+      firstSeenByAgentId: firstSeenByAgentIdRef.current,
+      previousAssignment: aihubSeatingRef.current,
+    });
+    if (shallowEqualStringRecord(next, aihubSeatingRef.current)) {
+      return aihubSeatingRef.current;
+    }
+    aihubSeatingRef.current = next;
+    return next;
+  }, [state.agents, activeAdapterType]);
   const remoteOfficeVisible =
     remoteOfficeEnabled &&
     (remoteOfficeSourceKind === "presence_endpoint"
@@ -4873,13 +4912,23 @@ export function OfficeScreen({
           key={activeFloor.id}
           agents={allVisibleAgents}
           storageNamespace={activeFloor.id}
-          layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
+          layoutPreset={
+            activeFloor.provider === "aihub"
+              ? "aihub"
+              : activeFloor.kind === "lobby"
+                ? "lobby"
+                : "office"
+          }
           officeCenterSignal={officeCameraCenterSignal}
           animationState={officeAnimationState}
           cleaningCues={aihubCleaningCues}
           leavingByAgentId={leavingByAgentId}
           leavingInPlaceByAgentId={leavingInPlaceByAgentId}
-          deskAssignmentByDeskUid={deskAssignmentByDeskUid}
+          deskAssignmentByDeskUid={
+            activeAdapterType === "aihub"
+              ? aihubSeatingByDeskUid
+              : deskAssignmentByDeskUid
+          }
           githubReviewAgentId={githubReviewAgentId}
           qaTestingAgentId={qaTestingAgentId}
           phoneBoothAgentId={activePhoneBoothAgentId}

@@ -23,8 +23,9 @@ import type {
   FurnitureItem,
   FurnitureSeed,
 } from "@/features/retro-office/core/types";
+import type { PodDeskSlot } from "@/lib/aihub/seating";
 
-export type OfficeLayoutPreset = "office" | "lobby";
+export type OfficeLayoutPreset = "office" | "lobby" | "aihub";
 
 const DEFAULT_PINGPONG_TABLE: FurnitureSeed = {
   type: "pingpong",
@@ -557,13 +558,178 @@ const DEFAULT_FURNITURE: FurnitureSeed[] = [
   { type: "chair", x: 100, y: 200, facing: 180 },
 ];
 
+// ---------------------------------------------------------------------------
+// AI Hub layout preset (Phase 3): session pods carved into the default office.
+// Keeps the walled rooms (server, gym, QA, art), kitchen, dining, and a break
+// lounge intact; replaces the flat bullpen desks with pod clusters so a session
+// and its subagents seat as one team. Desk `_uid`s are `aihub_<index>` (see
+// materializeDefaults) — the pod descriptors below carry the same uids the seating
+// allocator and desk routing key on.
+// ---------------------------------------------------------------------------
+
+const AIHUB_KITCHEN_ITEMS: FurnitureSeed[] = [
+  { type: "fridge", x: 1050, y: 20, w: 40, h: 80 },
+  { type: "stove", x: 920, y: 20 },
+  { type: "cabinet", x: 980, y: 30, w: 40, h: 40 },
+  { type: "microwave", x: 1030, y: 10, facing: 0 },
+  { type: "sink", x: 970, y: 20 },
+  { type: "dishwasher", x: 950, y: 20, w: 40, h: 40 },
+  { type: "cabinet", x: 840, y: 30, w: 80, h: 40, elevation: 0 },
+  { type: "coffee_machine", x: 880, y: 30, elevation: 0.56 },
+  { type: "wall_cabinet", x: 960, y: 10, w: 80, h: 20, elevation: 0.9 },
+  { type: "wall_cabinet", x: 880, y: 10, w: 80, h: 20, elevation: 0.9 },
+];
+
+const AIHUB_DINING_ITEMS: FurnitureSeed[] = [
+  { type: "round_table", x: 890, y: 100, r: 50 },
+  { type: "chair", x: 930, y: 100, facing: 0 },
+  { type: "chair", x: 930, y: 180, facing: 180 },
+  { type: "chair", x: 880, y: 130, facing: 90 },
+  { type: "chair", x: 970, y: 130, facing: 270 },
+];
+
+// Break lounge in the open floor east of the QA lab (x > QA_LAB_END_X).
+const AIHUB_LOUNGE_ITEMS: FurnitureSeed[] = [
+  { type: "couch", x: 1560, y: 300, w: 100, h: 40, facing: 90 },
+  { type: "couch", x: 1560, y: 420, w: 100, h: 40, facing: 90 },
+  { type: "table_rect", x: 1590, y: 360, w: 60, h: 30, facing: 270 },
+  { type: "beanbag", x: 1690, y: 320, color: "#e65100", facing: 225 },
+  { type: "beanbag", x: 1690, y: 430, color: "#1565c0", facing: 135 },
+  { type: "pingpong", x: 1560, y: 520, w: 100, h: 60 },
+  { type: "plant", x: 1560, y: 60 },
+  { type: "plant", x: 1740, y: 60 },
+  { type: "plant", x: 1740, y: 660 },
+];
+
+const AIHUB_DECOR_ITEMS: FurnitureSeed[] = [
+  DEFAULT_ATM_MACHINE, // (430,210) — satisfies ensureOfficeAtm
+  DEFAULT_PHONE_BOOTH, // (1050,190) — satisfies ensureOfficePhoneBooth
+  DEFAULT_SMS_BOOTH, // (700,10) — satisfies ensureOfficeSmsBooth
+  DEFAULT_KANBAN_BOARD, // (460,-60) — satisfies ensureOfficeKanbanBoard
+  { ...DEFAULT_JUKEBOX, x: 20, y: 120 }, // satisfies ensureOfficeJukebox (clear of pods)
+  { type: "whiteboard", x: 40, y: 40, w: 10, h: 60 },
+  { type: "clock", x: 900, y: 5 },
+  { type: "vending", x: 620, y: 10 },
+  { type: "trash", x: 210, y: 20 },
+  { type: "trash", x: 1120, y: 20 },
+  { type: "lamp", x: 430, y: 100 },
+  { type: "plant", x: 40, y: 250 },
+  { type: "plant", x: 660, y: 30 },
+];
+
+// Static (non-pod) items. Includes every room + appliance the office relies on so the
+// ensureOffice* migrations (which only append MISSING items) are no-ops here and leave
+// the deterministic `aihub_<index>` desk uids untouched.
+const AIHUB_STATIC_ITEMS: FurnitureSeed[] = [
+  ...DEFAULT_SERVER_ROOM_ITEMS,
+  ...DEFAULT_GYM_ITEMS,
+  ...DEFAULT_QA_LAB_ITEMS,
+  ...DEFAULT_ART_ROOM_ITEMS,
+  ...AIHUB_KITCHEN_ITEMS,
+  ...AIHUB_DINING_ITEMS,
+  ...AIHUB_LOUNGE_ITEMS,
+  ...AIHUB_DECOR_ITEMS,
+];
+
+// Pod geometry: a 2×2 cluster — lead (anchor) desk top-left, three member desks.
+const AIHUB_DESK_PITCH_X = 150;
+const AIHUB_DESK_PITCH_Y = 125;
+const AIHUB_POD_ORIGINS: { x: number; y: number }[] = [
+  { x: 60, y: 290 },
+  { x: 400, y: 290 },
+  { x: 740, y: 290 },
+  { x: 250, y: 530 },
+  { x: 560, y: 530 },
+  { x: 850, y: 530 },
+];
+
+export type AihubPodLayout = {
+  podIndex: number;
+  // Pod center in canvas coords (rug placement + labels).
+  center: { x: number; y: number };
+  // Rug footprint in canvas units.
+  size: { w: number; h: number };
+  leadDeskUid: string;
+  memberDeskUids: string[];
+  deskUids: string[];
+};
+
+const buildAihubLayout = (): {
+  furniture: FurnitureSeed[];
+  pods: AihubPodLayout[];
+  deskSlots: PodDeskSlot[];
+} => {
+  const furniture: FurnitureSeed[] = [];
+  const pods: AihubPodLayout[] = [];
+  const deskSlots: PodDeskSlot[] = [];
+  // Push a seed and return its index — which becomes the `aihub_<index>` _uid, keeping
+  // pod desk uids in lockstep with materializeDefaults regardless of interleaved dressing.
+  const push = (seed: FurnitureSeed): number => {
+    furniture.push(seed);
+    return furniture.length - 1;
+  };
+  for (const seed of AIHUB_STATIC_ITEMS) push(seed);
+
+  AIHUB_POD_ORIGINS.forEach((origin, podIndex) => {
+    const seats: { dx: number; dy: number; seat: "lead" | "member" }[] = [
+      { dx: 0, dy: 0, seat: "lead" },
+      { dx: AIHUB_DESK_PITCH_X, dy: 0, seat: "member" },
+      { dx: 0, dy: AIHUB_DESK_PITCH_Y, seat: "member" },
+      { dx: AIHUB_DESK_PITCH_X, dy: AIHUB_DESK_PITCH_Y, seat: "member" },
+    ];
+    const deskUids: string[] = [];
+    seats.forEach(({ dx, dy, seat }, seatIndex) => {
+      const x = origin.x + dx;
+      const y = origin.y + dy;
+      const deskIndex = push({
+        type: "desk_cubicle",
+        x,
+        y,
+        id: `aihub_pod${podIndex}_${seat === "lead" ? "lead" : `m${seatIndex}`}`,
+      });
+      const deskUid = `aihub_${deskIndex}`;
+      deskUids.push(deskUid);
+      deskSlots.push({ deskUid, podIndex, seat });
+      // Desk dressing (cosmetic; matches the default office desk).
+      push({ type: "chair", x: x + 20, y: y - 10, facing: 180 });
+      push({ type: "computer", x: x + 20, y: y - 13 });
+      push({ type: "keyboard", x: x + 30, y: y - 5 });
+      push({ type: "mouse", x: x + 52, y: y - 5 });
+    });
+    const spanW = AIHUB_DESK_PITCH_X + 100; // two desks wide
+    const spanH = AIHUB_DESK_PITCH_Y + 55; // two desks tall
+    pods.push({
+      podIndex,
+      center: { x: origin.x + spanW / 2, y: origin.y + spanH / 2 },
+      size: { w: spanW + 40, h: spanH + 40 },
+      leadDeskUid: deskUids[0],
+      memberDeskUids: deskUids.slice(1),
+      deskUids,
+    });
+  });
+
+  return { furniture, pods, deskSlots };
+};
+
+const AIHUB_LAYOUT = buildAihubLayout();
+const DEFAULT_AIHUB_FURNITURE: FurnitureSeed[] = AIHUB_LAYOUT.furniture;
+export const AIHUB_POD_LAYOUTS: AihubPodLayout[] = AIHUB_LAYOUT.pods;
+export const AIHUB_POD_DESK_SLOTS: PodDeskSlot[] = AIHUB_LAYOUT.deskSlots;
+
 export const materializeDefaults = (
   preset: OfficeLayoutPreset = "office",
-): FurnitureItem[] =>
-  (preset === "lobby" ? DEFAULT_LOBBY_FURNITURE : DEFAULT_FURNITURE).map((item, index) => ({
+): FurnitureItem[] => {
+  const seeds =
+    preset === "lobby"
+      ? DEFAULT_LOBBY_FURNITURE
+      : preset === "aihub"
+        ? DEFAULT_AIHUB_FURNITURE
+        : DEFAULT_FURNITURE;
+  return seeds.map((item, index) => ({
     ...item,
     _uid: `${preset}_${index}`,
   }));
+};
 
 export const isRetiredPingPongLamp = (item: FurnitureItem) =>
   item.type === "lamp" &&

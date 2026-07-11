@@ -115,21 +115,20 @@ export type SessionGroupSnapshot = {
 
 export const SESSION_LEAVE_CUE_PREFIX = "aihub-session-leave:";
 
-// A "session" clusters a top-level session node with its entire subagent subtree.
-// Each agent is folded into its root ancestor (walk the parent chain until the parent
-// is null or outside the roster); the root's id is the group key. A group is present
-// while any member remains, so a cue fires only once the whole tree has left.
-export const buildSessionGroups = (
+// Folds every agent to its session root by walking the parent chain until the parent
+// is null or outside the roster; returns agentId → rootId for the whole set. Shared by
+// session-leave cue detection (buildSessionGroups) and pod seating so both cluster a
+// session tree the same way (subagents carry no session_id — the parent chain is the key).
+export const resolveSessionRootByAgentId = (
   agents: SessionAgentInput[],
-): SessionGroupSnapshot[] => {
+): Map<string, string> => {
   const parentById = new Map<string, string | null>();
-  const nameById = new Map<string, string>();
   for (const agent of agents) {
     parentById.set(agent.agentId, agent.parentAgentId);
-    nameById.set(agent.agentId, agent.name);
   }
-  const resolveRoot = (agentId: string): string => {
-    let current = agentId;
+  const rootById = new Map<string, string>();
+  for (const agent of agents) {
+    let current = agent.agentId;
     const seen = new Set<string>();
     while (!seen.has(current)) {
       seen.add(current);
@@ -137,11 +136,25 @@ export const buildSessionGroups = (
       if (!parent || !parentById.has(parent)) break;
       current = parent;
     }
-    return current;
-  };
+    rootById.set(agent.agentId, current);
+  }
+  return rootById;
+};
+
+// A "session" clusters a top-level session node with its entire subagent subtree.
+// Each agent is folded into its root ancestor; the root's id is the group key. A group
+// is present while any member remains, so a cue fires only once the whole tree has left.
+export const buildSessionGroups = (
+  agents: SessionAgentInput[],
+): SessionGroupSnapshot[] => {
+  const rootById = resolveSessionRootByAgentId(agents);
+  const nameById = new Map<string, string>();
+  for (const agent of agents) {
+    nameById.set(agent.agentId, agent.name);
+  }
   const byKey = new Map<string, SessionGroupSnapshot>();
   for (const agent of agents) {
-    const rootId = resolveRoot(agent.agentId);
+    const rootId = rootById.get(agent.agentId) ?? agent.agentId;
     if (byKey.has(rootId)) continue;
     byKey.set(rootId, {
       key: rootId,

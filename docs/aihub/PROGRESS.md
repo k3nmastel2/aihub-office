@@ -3,7 +3,64 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: T12 stabilization sprint (re-prioritized ahead of Phase 3)
+## Current phase: Phase 3 — Hierarchy pods (implemented; live-verifying)
+
+### Phase 3 status — IMPLEMENTED (unit-green; pending live Chrome pass)
+
+Sessions become visible TEAMS: a new **aihub layout preset** carves 6 pod clusters
+(4 desks each: 1 lead anchor + 3 members) into the office, a **pure seating allocator**
+folds each session + its subagent subtree onto one pod, and a **tinted rug** renders
+under every occupied pod. This also fixes QA's Phase-2 observation that the aihub crowd
+never reached desks — assigned agents now walk to their pod desk via the existing tick.
+
+**Done:**
+- New pure module `src/lib/aihub/seating.ts`: `computeAihubSeating(agents, deskItems,
+  {firstSeenByAgentId, previousAssignment}) → Record<deskUid, agentId>`. Leads (session
+  roots) claim pod anchors in first-seen order; subagents fold up the parent chain
+  (reuses `resolveSessionRootByAgentId`, extracted from `buildSessionGroups`) to their
+  session's pod member desks; overflow members (>3) and overflow sessions (>6 pods) roam
+  (no desk); `done` releases desks; a surviving subagent takes the anchor if its lead is
+  done. STABILITY: pure + deterministic, and **sticky** via the previous poll's
+  assignment — a new session takes a FREE pod and never renumbers existing leads, and a
+  lead keeps its pod after an earlier-pod session leaves. `shallowEqualStringRecord`.
+- `src/lib/aihub/lifecycle.ts`: extracted `resolveSessionRootByAgentId` (shared parent-
+  chain root fold); `buildSessionGroups` refactored onto it, behavior identical (22
+  lifecycle tests unchanged).
+- `src/features/retro-office/core/furnitureDefaults.ts` (upstream, additive, FORK.md):
+  `"aihub"` preset. `buildAihubLayout` emits `DEFAULT_AIHUB_FURNITURE` + exports
+  `AIHUB_POD_LAYOUTS` (rug geometry) and `AIHUB_POD_DESK_SLOTS` (seating input) from ONE
+  source so desk `_uid`s (`aihub_<index>`) stay in lockstep with `materializeDefaults`.
+  Keeps server/gym/QA/art rooms + kitchen + dining + a break lounge (moved east of the QA
+  lab); every appliance included verbatim so `ensureOffice*` migrations stay no-ops.
+- `src/features/retro-office/objects/aihub/PodRug.tsx` (new): `<AihubPodRugs>` — a flat
+  tinted plane under each occupied pod (tint = pod anchor agent's color = stable per-
+  session hash), retires when the pod empties. Rendered after `<SceneFloorAndWalls>`
+  (floor layer), gated `layoutPreset === "aihub"`.
+- Wiring (upstream, additive, FORK.md): OfficeScreen one aihub-gated memo feeds the
+  computed seating into the existing `deskAssignmentByDeskUid` prop (bypassing, not
+  breaking, the manual desk picker + studio persistence) + `layoutPreset` aihub branch;
+  RetroOffice3D renders the rugs. `useAgentTick` seating untouched.
+- Unit tests `tests/unit/aihub/seating.test.ts` (15): allocator correctness (leads→
+  anchors in first-seen order, members→same pod, nested-chain fold, overflow members/
+  sessions roam, done releases, lead-done→member promoted to anchor) AND stability
+  (deterministic; fixed-point when previous fed back; new session doesn't renumber; lead
+  keeps pod after earlier-pod session leaves; new member doesn't move existing members) +
+  real-layout sanity (6 pods × 4, live session+3 subagents → one pod).
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 66/66 green
+(15 new seating + 22 lifecycle unchanged after the refactor) · full `tests/unit/` → only
+the 5 known pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2,
+agentFleetHydration ×1), zero new.
+
+**Not yet captured live:** the Chrome multi-team pass (pods + rugs, leads at anchors,
+members clustered, crowd reaching desks) — pending a driver window from the orchestrator.
+NOTE: stale persisted furniture on the `aihub-live` namespace
+(`openclaw-office-furniture-v9:aihub-live`) would override the new preset — clear that
+localStorage key + reload if pods don't appear on first live load.
+
+---
+
+## Prior sprint: T12 stabilization (before Phase 3)
 
 **PHASE 2 CLOSED 2026-07-11.** Door walk-in: QA-verified (burst + dispersal + gating). Lifecycle
 logic: unit-proven (51 tests incl. the T15 regression guard: 7 done / cap 4 → all fade, 0 ghosts).
@@ -218,7 +275,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 0 — Fork boots | done | evidence/phase0 |
 | 1 — aihub provider + flat roster | **done** (closed with documented T12 debt, commit 157c974) | tests/unit/aihub · evidence/phase1 |
 | 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
-| 3 — Hierarchy pods | pending | — |
+| 3 — Hierarchy pods | implemented; live-verifying | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | pending | — |
 | 5 — Services + errands | pending | — |
 | 6 — Interactions | pending | — |

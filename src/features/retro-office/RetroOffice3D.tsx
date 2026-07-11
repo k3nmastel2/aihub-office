@@ -112,6 +112,7 @@ import {
   AIHUB_DOOR_ENTRANCE,
   AIHUB_DOOR_EXIT,
 } from "@/features/retro-office/objects/aihub/door";
+import { AihubPodRugs } from "@/features/retro-office/objects/aihub/PodRug";
 import {
   createWallItem,
   getItemBaseSize,
@@ -5353,6 +5354,13 @@ export function RetroOffice3D({
 
             {/* Floor + walls — always visible, no async loading. */}
             <SceneFloorAndWalls showRemoteOffice={remoteOfficeEnabled} />
+
+            {/* AI Hub session pods: tinted rug under each occupied pod (aihub floor only). */}
+            <AihubPodRugs
+              agents={agents}
+              deskAssignmentByDeskUid={deskAssignmentByDeskUid}
+              visible={layoutPreset === "aihub"}
+            />
 
             {/* Wall pictures — procedural, no async loading. */}
             <SceneWallPictures showRemoteOffice={remoteOfficeEnabled} />
