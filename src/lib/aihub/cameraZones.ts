@@ -25,9 +25,11 @@ export type AihubZoneAnchor = {
 // kitchen furniture clusters in `furnitureDefaults`).
 export const AIHUB_NAMED_ZONE_ANCHORS: readonly AihubZoneAnchor[] = [
   { id: "serverRoom", label: "Server Room", cx: 120, cy: 630, zoom: 88 },
-  { id: "library", label: "Library", cx: 360, cy: 130, zoom: 94 },
+  // Library is the walled research room in the top-center (Phase 9): center of its ~x488-822 /
+  // y38-247 interior. Was (360,130) — pre-Phase-9 open-floor guess, never matched the shelves.
+  { id: "library", label: "Library", cx: 655, cy: 150, zoom: 92 },
   { id: "qaLab", label: "QA Lab", cx: 1470, cy: 95, zoom: 92 },
-  { id: "kitchen", label: "Kitchen", cx: 880, cy: 60, zoom: 94 },
+  { id: "kitchen", label: "Kitchen", cx: 960, cy: 60, zoom: 94 },
 ];
 
 const DEFAULT_ZONE_ZOOM = 92;

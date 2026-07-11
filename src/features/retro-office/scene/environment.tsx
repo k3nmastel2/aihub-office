@@ -169,8 +169,13 @@ function OfficeFlagPole({
 
 export const FloorAndWalls = memo(function FloorAndWalls({
   showRemoteOffice = true,
+  hideSouthWall = false,
 }: {
   showRemoteOffice?: boolean;
+  // Phase 9 (aihub): the aihub preset supplies its own furniture south wall (with the entrance door
+  // gap) ~26px further south, so the solid environment south wall is suppressed to avoid agents
+  // visually clipping it as they walk in/out through the entrance.
+  hideSouthWall?: boolean;
 }) {
   const districtWidth = CANVAS_W * SCALE;
   const districtHeight = CANVAS_H * SCALE;
@@ -561,15 +566,17 @@ export const FloorAndWalls = memo(function FloorAndWalls({
                 />
               </mesh>
             ) : null}
-            <mesh position={[localOfficeCenterX, 0.5, localSouthWallZ]} receiveShadow>
-              <boxGeometry args={[localOfficeWidth, 1, 0.12]} />
-              <meshStandardMaterial
-                color={wallColor}
-                emissive={wallEmissive}
-                emissiveIntensity={0.4}
-                roughness={0.9}
-              />
-            </mesh>
+            {!hideSouthWall ? (
+              <mesh position={[localOfficeCenterX, 0.5, localSouthWallZ]} receiveShadow>
+                <boxGeometry args={[localOfficeWidth, 1, 0.12]} />
+                <meshStandardMaterial
+                  color={wallColor}
+                  emissive={wallEmissive}
+                  emissiveIntensity={0.4}
+                  roughness={0.9}
+                />
+              </mesh>
+            ) : null}
             {showRemoteOffice ? (
               <mesh
                 position={[localOfficeCenterX, 0.5, localSouthWallZ + remoteOfficeOffsetZ]}
@@ -644,10 +651,12 @@ export const FloorAndWalls = memo(function FloorAndWalls({
           <meshLambertMaterial color="#0c0c10" />
         </mesh>
       ) : null}
-      <mesh position={[localOfficeCenterX, 0.03, localSouthWallZ - 0.04]}>
-        <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
-        <meshLambertMaterial color="#0c0c10" />
-      </mesh>
+      {!hideSouthWall ? (
+        <mesh position={[localOfficeCenterX, 0.03, localSouthWallZ - 0.04]}>
+          <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
+          <meshLambertMaterial color="#0c0c10" />
+        </mesh>
+      ) : null}
       {showRemoteOffice ? (
         <mesh position={[localOfficeCenterX, 0.03, localSouthWallZ - 0.04 + remoteOfficeOffsetZ]}>
           <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />

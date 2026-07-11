@@ -1,12 +1,13 @@
 import type { LibraryRoute } from "@/features/retro-office/core/types";
 
-// The reading spot in front of the aihub library bookshelves (see AIHUB_LIBRARY_ITEMS in
-// furnitureDefaults). Open floor — no walled door — so the route is a single straight walk-to,
-// unlike the server-room / phone-booth staged door routes.
+// The reading spot inside the aihub library room (see AIHUB_LIBRARY_ITEMS in furnitureDefaults;
+// Phase 9 made the library a walled room with a south door at x655-725). The route stays a single
+// straight walk-to — A* threads the (passable) door automatically, so no staged approach is needed.
+// Target sits just inside the doorway, in front of the reading nook, facing the north bookshelves.
 export const LIBRARY_TARGET = {
-  x: 560,
+  x: 690,
   y: 200,
-  facing: 0,
+  facing: Math.PI,
 };
 
 export const resolveLibraryRoute = (

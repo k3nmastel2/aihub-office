@@ -567,6 +567,15 @@ const DEFAULT_FURNITURE: FurnitureSeed[] = [
 // allocator and desk routing key on.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Phase 9 interior remodel (Ken soak feedback #1). Building footprint is the
+// local office: x 0..1792, y 0..712 (LOCAL_OFFICE_CANVAS_* = 1800×720). The
+// nav grid only blocked the CANVAS edge (1800×1800), so agents escaped south of
+// y720; AIHUB_PERIMETER_ITEMS below adds the missing south wall + a readable
+// entrance door so wall-collision contains all movement (item 7 / item 9).
+// ---------------------------------------------------------------------------
+
+// KITCHEN — break-room appliances along the top-center north wall (item 3: restored).
 const AIHUB_KITCHEN_ITEMS: FurnitureSeed[] = [
   { type: "fridge", x: 1050, y: 20, w: 40, h: 80 },
   { type: "stove", x: 920, y: 20 },
@@ -580,83 +589,187 @@ const AIHUB_KITCHEN_ITEMS: FurnitureSeed[] = [
   { type: "wall_cabinet", x: 880, y: 10, w: 80, h: 20, elevation: 0.9 },
 ];
 
-const AIHUB_DINING_ITEMS: FurnitureSeed[] = [
-  { type: "round_table", x: 890, y: 100, r: 50 },
-  { type: "chair", x: 930, y: 100, facing: 0 },
-  { type: "chair", x: 930, y: 180, facing: 180 },
-  { type: "chair", x: 880, y: 130, facing: 90 },
-  { type: "chair", x: 970, y: 130, facing: 270 },
+// EATING AREA — break-room dining just south of the kitchen (item 4): two round tables + chairs.
+// Round tables use TOP-LEFT coords with `r` → center = (x+r, y+r). Cluster ~x860-1075 / y145-260,
+// clear of the kitchen (y<100), the pods (y>=290), the library room (x<=830) and the east hall.
+const AIHUB_EATING_ITEMS: FurnitureSeed[] = [
+  { type: "round_table", x: 858, y: 150, r: 34 },
+  { type: "chair", x: 930, y: 172, facing: 270 },
+  { type: "chair", x: 816, y: 172, facing: 90 },
+  { type: "chair", x: 880, y: 106, facing: 180 },
+  { type: "chair", x: 880, y: 222, facing: 0 },
+  { type: "round_table", x: 858, y: 250, r: 34 },
+  { type: "chair", x: 930, y: 272, facing: 270 },
+  { type: "chair", x: 816, y: 272, facing: 90 },
+  { type: "chair", x: 880, y: 320, facing: 0 },
 ];
 
-// Break lounge in the open floor east of the QA lab (x > QA_LAB_END_X).
+// LOUNGE — coherent break lounge in the open floor east of the QA lab (item 2), arranged around a
+// coffee table with the PING-PONG table pulled well clear of the QA east wall (QA_LAB_END_X=1534)
+// so BOTH player slots (resolvePingPongTargets = x-40 and x+120) land in open floor (item 1).
+// The jukebox lives in the lounge's north corner (item 3: relocated out of the break room).
 const AIHUB_LOUNGE_ITEMS: FurnitureSeed[] = [
-  { type: "couch", x: 1560, y: 300, w: 100, h: 40, facing: 90 },
-  { type: "couch", x: 1560, y: 420, w: 100, h: 40, facing: 90 },
-  { type: "table_rect", x: 1590, y: 360, w: 60, h: 30, facing: 270 },
-  { type: "beanbag", x: 1690, y: 320, color: "#e65100", facing: 225 },
-  { type: "beanbag", x: 1690, y: 430, color: "#1565c0", facing: 135 },
-  { type: "pingpong", x: 1560, y: 520, w: 100, h: 60 },
-  { type: "plant", x: 1560, y: 60 },
-  { type: "plant", x: 1740, y: 60 },
-  { type: "plant", x: 1740, y: 660 },
+  // Seating hugs the west/east edges so a clear aisle stays open from the south corridor up to the
+  // couches + ping-pong. The ping-pong table is pulled east of the QA wall (x1534) so both player
+  // slots (resolvePingPongTargets = x1580 / x1740) are open floor (item 1).
+  { type: "couch", x: 1545, y: 300, w: 40, h: 110, vertical: true, facing: 90 },
+  { type: "table_rect", x: 1618, y: 336, w: 56, h: 30, facing: 0 },
+  { type: "couch", x: 1712, y: 300, w: 40, h: 110, vertical: true, facing: 270 },
+  { type: "beanbag", x: 1560, y: 200, color: "#e65100", facing: 135 },
+  { type: "beanbag", x: 1720, y: 200, color: "#1565c0", facing: 225 },
+  { type: "pingpong", x: 1620, y: 560, w: 100, h: 60 },
+  { ...DEFAULT_JUKEBOX, x: 1560, y: 120, facing: 90 },
+  { type: "plant", x: 1740, y: 120 },
+  { type: "plant", x: 1758, y: 650 },
 ];
 
-// Library / research zone (Phase 5): an open-floor reading corner in the top-middle bullpen
-// (x≈460-660, y≈45-230) — clear of the pods (y≥290), the art room (x≤438) and the kitchen
-// (x≥840). Agents doing memory / recall / research work walk here via resolveLibraryRoute
-// (reading spot LIBRARY_TARGET = (560,200)). Bookshelves are the health-glow anchor for the
-// memory/graph/recall services.
+// LIBRARY / RESEARCH ROOM (item 6): the walled "middle office room". Bookshelves + books + reading
+// tables in a walled room in the top-center, between the art room (x<=438) and the kitchen
+// (x>=840). A door on the south wall opens into the pod bullpen (the pod1↔pod2 aisle). This is the
+// research area — memory/graph/recall services map here (serviceMap), the reading walk-to target
+// (LIBRARY_TARGET) and the "Library" camera-jump anchor (cameraZones) both point inside it.
+// Interior ~x488-822 / y38-247.
 const AIHUB_LIBRARY_ITEMS: FurnitureSeed[] = [
-  { type: "bookshelf", x: 500, y: 55, w: 80, h: 36, facing: 180 },
-  { type: "bookshelf", x: 590, y: 55, w: 80, h: 36, facing: 180 },
-  { type: "table_rect", x: 545, y: 150, w: 60, h: 28, facing: 0 },
-  { type: "chair", x: 545, y: 128, facing: 0 },
-  { type: "beanbag", x: 632, y: 188, color: "#0f766e", facing: 225 },
-  { type: "plant", x: 470, y: 60 },
-  { type: "plant", x: 660, y: 205 },
+  // Room x480-810 / interior x488-802 / y30-255. Wide south door (x665-765) is aligned with the
+  // pod1↔pod2 aisle (x660-790) so nav padding (±15) can't seal it — the reading spot stays walk-to.
+  // Walled on three sides (N/E/W) with a wide OPEN south so the research room is a distinct "room"
+  // that stays trivially walk-to from the bullpen (a full south wall + door kept getting sealed by
+  // nav padding). Short south stubs frame the opening as a doorway without pinching it.
+  { type: "wall", x: 480, y: 30, w: 330, h: WALL_THICKNESS }, // north
+  { type: "wall", x: 480, y: 30, w: WALL_THICKNESS, h: 225 }, // west (y30-255)
+  { type: "wall", x: 802, y: 30, w: WALL_THICKNESS, h: 225 }, // east
+  { type: "wall", x: 480, y: 247, w: 70, h: WALL_THICKNESS }, // south stub (x480-550)
+  { type: "wall", x: 740, y: 247, w: 70, h: WALL_THICKNESS }, // south stub (x740-810)
+  { type: "bookshelf", x: 496, y: 40, w: 84, h: 30, facing: 180 },
+  { type: "bookshelf", x: 592, y: 40, w: 84, h: 30, facing: 180 },
+  { type: "bookshelf", x: 700, y: 40, w: 90, h: 30, facing: 180 },
+  { type: "bookshelf", x: 496, y: 92, w: 84, h: 30, facing: 180 },
+  { type: "table_rect", x: 520, y: 150, w: 90, h: 34, facing: 0 },
+  { type: "chair", x: 535, y: 120, facing: 180 },
+  { type: "chair", x: 585, y: 120, facing: 180 },
+  { type: "beanbag", x: 715, y: 165, color: "#0f766e", facing: 225 },
+  { type: "plant", x: 500, y: 210 },
+  { type: "plant", x: 778, y: 60 },
 ];
+
+// HUDDLE AREAS (item 5): round tables + chairs near the pods where collaborating agents gather.
+// Centers exported as AIHUB_HUDDLE_TABLES so the payload-ready huddle choreography
+// (computeHuddles in lib/aihub/collaboration.ts) can seat groups here in future.
+export type AihubHuddleTable = { index: number; center: { x: number; y: number } };
+// Huddle tables sit in open top-band pockets NEAR the pods (not in the narrow bullpen aisles,
+// which are sole connections that a table would seal). Reachability is asserted in worldIntegrity.
+const AIHUB_HUDDLE_CENTERS: { x: number; y: number }[] = [
+  { x: 155, y: 230 }, // top-left, above pod 0 / beside the phone booth
+  { x: 960, y: 245 }, // top-right, beside the eating area / above pod 2
+];
+const HUDDLE_TABLE_R = 34;
+const buildHuddleItems = (): FurnitureSeed[] => {
+  const items: FurnitureSeed[] = [];
+  for (const { x: cx, y: cy } of AIHUB_HUDDLE_CENTERS) {
+    // Round table centered on (cx,cy) — top-left = (cx-r, cy-r) with size r*2.
+    items.push({ type: "round_table", x: cx - HUDDLE_TABLE_R, y: cy - HUDDLE_TABLE_R, r: HUDDLE_TABLE_R });
+    // Four chairs around it (chair footprint 24×24 → offset the corner so the seat centers ~48px out).
+    items.push({ type: "chair", x: cx + 42, y: cy - 12, facing: 270 });
+    items.push({ type: "chair", x: cx - 66, y: cy - 12, facing: 90 });
+    items.push({ type: "chair", x: cx - 12, y: cy - 66, facing: 180 });
+    items.push({ type: "chair", x: cx - 12, y: cy + 42, facing: 0 });
+  }
+  return items;
+};
+const AIHUB_HUDDLE_ITEMS = buildHuddleItems();
+export const AIHUB_HUDDLE_TABLES: AihubHuddleTable[] = AIHUB_HUDDLE_CENTERS.map(
+  (center, index) => ({ index, center }),
+);
+
+// SOUTH PERIMETER WALL + ENTRANCE (item 7 containment / item 9 door). The building floor ends at
+// y≈712 but the nav grid only blocked the canvas edge, so agents walked out the open south side.
+// Furniture walls (blocksNavigation=true) close the south with a single readable door gap the
+// spawn/leave anchors funnel through; DoorModel already swings it open on agent proximity.
+//
+// The east wing (gym+QA, y40-680) boxes off the far-east lounge; the only main↔lounge route runs
+// south of the east wing, through the open hall (x1092-1126). A wall too high (near y710) would
+// seal that back-corridor against the east-wing south wall (y680) once nav padding (±15) is
+// applied. Placing the single south wall at y746 leaves a clear grid row (y700-725) so the
+// corridor stays walkable, while still containing the whole building. The wall sits ~26px past the
+// beige floor edge (y720); the environment south wall is gated to match the entrance gap.
+const AIHUB_SOUTH_WALL_Y = 746;
+const AIHUB_ENTRANCE_GAP_X1 = 770;
+const AIHUB_ENTRANCE_GAP_X2 = 870;
+const AIHUB_BUILDING_EAST_X = 1792;
+const AIHUB_PERIMETER_ITEMS: FurnitureSeed[] = [
+  { type: "wall", x: 0, y: AIHUB_SOUTH_WALL_Y, w: AIHUB_ENTRANCE_GAP_X1, h: WALL_THICKNESS },
+  {
+    type: "door",
+    x: AIHUB_ENTRANCE_GAP_X1,
+    y: AIHUB_SOUTH_WALL_Y,
+    w: AIHUB_ENTRANCE_GAP_X2 - AIHUB_ENTRANCE_GAP_X1,
+    h: DOOR_THICKNESS,
+    facing: 0,
+  },
+  {
+    type: "wall",
+    x: AIHUB_ENTRANCE_GAP_X2,
+    y: AIHUB_SOUTH_WALL_Y,
+    w: AIHUB_BUILDING_EAST_X - AIHUB_ENTRANCE_GAP_X2,
+    h: WALL_THICKNESS,
+  },
+];
+
+// Canvas center of the entrance door gap — exported so the spawn/leave anchors and the environment
+// south-wall gap stay in lockstep with the wall geometry above.
+export const AIHUB_ENTRANCE_CENTER_X =
+  (AIHUB_ENTRANCE_GAP_X1 + AIHUB_ENTRANCE_GAP_X2) / 2;
+export const AIHUB_ENTRANCE_GAP_WIDTH =
+  AIHUB_ENTRANCE_GAP_X2 - AIHUB_ENTRANCE_GAP_X1;
+export const AIHUB_SOUTH_WALL_CANVAS_Y = AIHUB_SOUTH_WALL_Y;
 
 const AIHUB_DECOR_ITEMS: FurnitureSeed[] = [
   DEFAULT_ATM_MACHINE, // (430,210) — satisfies ensureOfficeAtm
-  DEFAULT_PHONE_BOOTH, // (1050,190) — satisfies ensureOfficePhoneBooth
+  { ...DEFAULT_PHONE_BOOTH, x: 1700, y: 600 }, // voice service anchor — quiet corner of the lounge
   DEFAULT_SMS_BOOTH, // (700,10) — satisfies ensureOfficeSmsBooth
   DEFAULT_KANBAN_BOARD, // (460,-60) — satisfies ensureOfficeKanbanBoard
-  { ...DEFAULT_JUKEBOX, x: 20, y: 120 }, // satisfies ensureOfficeJukebox (clear of pods)
-  { type: "whiteboard", x: 40, y: 40, w: 10, h: 60 },
+  { type: "whiteboard", x: 240, y: 15, w: 10, h: 60 },
   { type: "clock", x: 900, y: 5 },
   { type: "vending", x: 620, y: 10 },
   { type: "trash", x: 210, y: 20 },
   { type: "trash", x: 1120, y: 20 },
   { type: "lamp", x: 430, y: 100 },
-  { type: "plant", x: 40, y: 250 },
+  { type: "plant", x: 230, y: 60 },
   { type: "plant", x: 660, y: 30 },
 ];
 
 // Static (non-pod) items. Includes every room + appliance the office relies on so the
 // ensureOffice* migrations (which only append MISSING items) are no-ops here and leave
-// the deterministic `aihub_<index>` desk uids untouched.
+// the deterministic `aihub_<index>` desk uids untouched. NOTE: the jukebox now lives in
+// AIHUB_LOUNGE_ITEMS (relocated to the lounge corner), still satisfying ensureOfficeJukebox
+// by type-presence.
 const AIHUB_STATIC_ITEMS: FurnitureSeed[] = [
   ...DEFAULT_SERVER_ROOM_ITEMS,
   ...DEFAULT_GYM_ITEMS,
   ...DEFAULT_QA_LAB_ITEMS,
   ...DEFAULT_ART_ROOM_ITEMS,
   ...AIHUB_KITCHEN_ITEMS,
-  ...AIHUB_DINING_ITEMS,
+  ...AIHUB_EATING_ITEMS,
   ...AIHUB_LOUNGE_ITEMS,
   ...AIHUB_LIBRARY_ITEMS,
+  ...AIHUB_HUDDLE_ITEMS,
+  ...AIHUB_PERIMETER_ITEMS,
   ...AIHUB_DECOR_ITEMS,
 ];
 
 // Pod geometry: a 2×2 cluster — lead (anchor) desk top-left, three member desks.
 const AIHUB_DESK_PITCH_X = 150;
 const AIHUB_DESK_PITCH_Y = 125;
+// Phase 9: pods re-spaced so (a) wide bullpen↔top-band aisles stay open (top gaps ~130px between
+// pods so the library room + kitchen stay reachable) and (b) no pod desk reaches the x1075-1100
+// hall column that is the only main↔far-east-lounge route past the gym's SW corner.
 const AIHUB_POD_ORIGINS: { x: number; y: number }[] = [
-  { x: 60, y: 290 },
-  { x: 400, y: 290 },
-  { x: 740, y: 290 },
-  { x: 250, y: 530 },
-  { x: 560, y: 530 },
-  { x: 850, y: 530 },
+  { x: 100, y: 300 }, // leaves a clear west channel (x0-100) so the top-left band stays reachable
+  { x: 410, y: 300 },
+  { x: 790, y: 300 },
+  { x: 270, y: 510 }, // clears the server-room door approach (door at x210, y630)
+  { x: 540, y: 510 },
+  { x: 810, y: 510 }, // SE desk ends ~x1060, leaving the x1075-1100 hall column clear
 ];
 
 export type AihubPodLayout = {

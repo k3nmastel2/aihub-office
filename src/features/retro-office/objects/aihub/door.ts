@@ -1,20 +1,20 @@
 import type { FacingPoint } from "@/features/retro-office/core/types";
 
-// Front-door anchor for aihub agents. New agents spawn here and walk in to their
-// desk/roam target (A* provides the walk-in for free); leaving agents route back
-// here before fading out. Bottom-center open floor of the default office layout —
-// alongside the proven-navigable janitor bottom stops. A* `findFree` snaps to the
-// nearest open cell, so exact placement is forgiving; the aihub layout preset
-// (Phase 3) can override this.
+// Front-door anchor for aihub agents. Phase 9 added a real south perimeter wall with a single
+// entrance door gap centered at canvas x≈820 (AIHUB_ENTRANCE_CENTER_X in furnitureDefaults); the
+// wall sits at y≈710. Agents now spawn just OUTSIDE the door (y=740, on the entry apron) and walk
+// IN through the gap — so the entrance is the actual, visible way in/out and the door swings as
+// they pass (item 7 / item 9). Leaving agents route back to the same apron and fade there. A*
+// `findFree` snaps to the nearest open cell, so exact placement stays forgiving.
 export const AIHUB_DOOR_ENTRANCE: FacingPoint = {
   x: 820,
-  y: 660,
+  y: 780,
   facing: -Math.PI / 2,
 };
 
 export const AIHUB_DOOR_EXIT: FacingPoint = {
   x: 820,
-  y: 660,
+  y: 780,
   facing: Math.PI / 2,
 };
 

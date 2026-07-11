@@ -5571,8 +5571,12 @@ export function RetroOffice3D({
               color="#7090ff"
             />
 
-            {/* Floor + walls — always visible, no async loading. */}
-            <SceneFloorAndWalls showRemoteOffice={remoteOfficeEnabled} />
+            {/* Floor + walls — always visible, no async loading. The aihub preset supplies its own
+                furniture south wall + entrance door, so the solid environment south wall is hidden. */}
+            <SceneFloorAndWalls
+              showRemoteOffice={remoteOfficeEnabled}
+              hideSouthWall={layoutPreset === "aihub"}
+            />
 
             {/* AI Hub session pods: tinted rug under each occupied pod (aihub floor only). */}
             <AihubPodRugs

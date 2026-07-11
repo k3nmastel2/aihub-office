@@ -41,8 +41,47 @@ Sole implementer: `phase9-impl`. Investigation findings (3 read-only subagents):
 per-zone camera-preset buttons (own `cameraPresetRef`), and agent click-select (R3F `onClick` fires
 only on non-drag clicks) untouched. FORK.md row added.
 
-### Phase 9a — LAYOUT REMODEL — in progress
-### Phase 9b — WORLD INTEGRITY (containment + entrance + doors) — in progress
+### Phase 9a — LAYOUT REMODEL — LANDED (typecheck + tests/unit/aihub 216/216 green; live pending)
+The aihub preset (`furnitureDefaults`) was remodeled against Ken's items 1-6, validated with an
+empirical nav-grid harness (build the real grid, flood-fill from the entrance, assert every zone
+reachable) rather than by eye:
+- **Ping-pong (item 1):** pulled east of the QA-lab wall (table now at x1620/y560) so BOTH player
+  slots (`resolvePingPongTargets` = x1580 / x1740) are open floor — was slot x1520 standing INSIDE
+  the QA lab behind its east wall (x1534), i.e. Ken's "plays through the wall."
+- **Lounge (item 2):** coherent far-east cluster — two facing couches + coffee table + beanbags,
+  ping-pong alongside, jukebox in the corner (item 3: relocated out of the break room).
+- **Kitchen (item 3):** kept in place; **eating area (item 4):** new break-room round tables + chairs.
+- **Huddle areas (item 5):** round tables + chairs near the pods; exported `AIHUB_HUDDLE_TABLES`
+  anchors for the payload-ready `computeHuddles` choreography.
+- **Library (item 6):** a walled research ROOM (N/E/W walls + wide open south) in the top-center;
+  `LIBRARY_TARGET` + the "Library" camera anchor + the memory/graph/recall serviceMap all point here.
+- Pods stay 6×4 (desk uids shift internally but everything derives from `AIHUB_POD_DESK_SLOTS`;
+  seating test stays green); re-spaced to keep wide bullpen↔zone aisles + the x1075 hall clear.
+- **Reachability proven** (new `worldIntegrity.test.ts`): all 24 desks + library + kitchen + eating +
+  lounge couches + both ping-pong slots + all huddle tables + the server room reachable.
+
+### Phase 9b — WORLD INTEGRITY (containment + entrance + doors) — LANDED (green; live pending)
+- **Containment (item 7):** `AIHUB_PERIMETER_ITEMS` adds the missing south perimeter WALL (furniture
+  ⇒ `buildNavGrid` blocks it) at y746 with a single entrance door gap (x770-870). The nav grid only
+  blocked the CANVAS edge (1800×1800) while the building floor is 1800×720, so the whole strip y>720
+  was walkable "outside" — N/E/W were already contained by the canvas edge; the south wall closes the
+  only escape. y746 (26px past the beige edge) leaves a clear grid row past the east-wing bottom wall
+  so the far-east lounge stays reachable. `worldIntegrity` proves the wall's ONLY opening is the
+  entrance. Spawn/leave anchors moved just OUTSIDE the door (y780) so agents walk IN through it.
+- **Entrance visual:** the solid environment south wall is suppressed on the aihub floor
+  (`FloorAndWalls hideSouthWall`) so agents don't clip it; the grey furniture south wall + swinging
+  door is the clean south boundary.
+- **Doors (item 9):** the existing `DoorModel` already swings open/closed on agent proximity
+  (`renderAgentsRef`) — the new entrance door + all room doors (server/gym/QA/art/library) animate;
+  live confirmation in the Chrome pass.
+- **KNOWN LIMIT (documented):** the east-wing gym + QA lab doors open onto the 56px gym↔QA hall,
+  whose south junction is padding-sealed by the (upstream, unchanged) gym/QA bottom walls — a
+  pre-existing tightness (T25). Gym is parked; the QA HUD + health glow still render; only the rare
+  chrome errand WALK-TO is affected. The server room (primary mlx/ollama errand) IS reachable via its
+  staged route. Re-opening the east wing is folded into T25.
+
+**Next:** Chrome self-verify (one driver, hard reload): screenshot each remodeled zone, an agent NOT
+clipping a wall (roam containment), drag-pan, door open/close. Then prod rebuild + up.
 
 ---
 
