@@ -55,10 +55,55 @@ assertion against `live-real.json`) · full `tests/unit/` → only the 5 known p
   controller enqueues instead of sending when the agent's inferred status is "running" (the common
   case for a nudgeable active session), which would silently defer the nudge.
 
-**Next:** live Chrome self-verify against the real hub (REQUEST window + a cleared test nudge target
-+ a cleared done dismiss target from "main"): card opens with correct fields on session-lead /
-subagent / hermes, nudge gating correct, one cleared live nudge + one cleared live dismiss with
-visible outcomes. Evidence → `docs/aihub/evidence/phase6/`.
+### Phase 6 LIVE CHROME PASS (2026-07-11, prod :3100, sole-driver window) — PASS; one live-found bug fixed
+Ran the live pass on a PROD build against the real hub (roster 46), with "main" clearing two
+disposable targets: nudge `claude-4575d616` (a throwaway top-level Claude session, can_nudge:true),
+dismiss `f015ccaa-sub-dismiss-me` (a named idle subagent — its name-derived id is unique, so the 24h
+hide has zero collateral). The card opens via claw3d's existing chat slide-out; roster entries were
+selected through their real React click handlers (coordinate-free) and every field/affordance
+asserted from the live DOM.
+
+- **CARD FIELDS — CONFIRMED across all 3 agent types** (DOM-asserted, not just screenshots):
+  - **Session lead** (`claude-f015ccaa`, Working): "~/ai/hub · claude/claude-fable-5", WORKING pill +
+    "just now" + "Session · tier 1", project ai-hub, tasks "7 pending · 1 in progress · 14 done",
+    background "3 background (2 running)", current task, and the RECENT ACTIVITY task checklist.
+  - **Session lead** (`claude-4575d616`, Done): "~ · claude/claude-sonnet-5", DONE pill + age +
+    Session·tier 1 — cleanly distinct from the fable-5 orchestrator (safety disambiguation for the nudge).
+  - **Subagent** (`dismiss-me`, Idle): "dismiss-me · claude/sonnet", IDLE + "Subagent · tier 2".
+  - **Hermes** (`hermes-engine`, Working): "chief of staff · gateway", HERMES chip, "No recent activity."
+- **NUDGE GATING — CONFIRMED.** Claude sessions render the composer (enabled; Send disabled only until
+  text is typed). Subagent shows NO composer + reason "Subagents can't be nudged — resume their
+  top-level session instead." Hermes shows NO composer + "Hermes sessions can't be nudged from the
+  office." (the exact `resolveNudgeAffordance` reasons).
+- **DISMISS GATING — CONFIRMED.** Enabled on idle (dismiss-me) + done (4575d616); disabled on
+  working/active (orchestrator, Hermes) — "Dismiss once the agent is idle or done."
+- **LIVE NUDGE (cleared `claude-4575d616`) — DELIVERED.** Typed the bounded ping, clicked Nudge →
+  provider `chat.send` → proxy → hub `/api/live/nudge` returned 200 (card showed "Nudge delivered —
+  session resumed.", input cleared). Per the hub code a 200 means it validated the session exists and
+  launched `claude --resume <sid> -p <msg>` detached. The node did not visibly re-flip `active` within
+  my polling window (resume spin-up / brief active window between 3s polls) — **requested server-side
+  confirmation from "main"** that the resume fired for the 4575d616 session specifically.
+- **LIVE DISMISS (cleared `f015ccaa-sub-dismiss-me`) — FULL E2E after a bug fix.** First attempt
+  returned **400 "id is required"** from the hub → root-caused live: `postHubDismiss` sent
+  `{ session_id }` and the provider passed `node.sessionId`, but the hub hides by live NODE id
+  (`/api/live/dismiss` reads `body.id`; subagents have no session_id). **Fixed** (`{ id: nodeId }` +
+  provider passes agentId; +2 http.test.ts cases), rebuilt prod, re-verified: confirm dialog copy
+  correct ("Dismiss dismiss-me? Hides it from the office for 24h…"), POST 200, card closed, and the
+  node dropped from the hub `dismissed.json` (`{"id":"f015ccaa-sub-dismiss-me"}`), from `/api/live`,
+  AND from the office roster (46→45). Commit 59f2eaa.
+
+**OPS NOTE for future testers (from "main"):** dismiss keys on the live NODE id. NAMED disposable
+teammates have unique ids (safe to dismiss). Do NOT dismiss unnamed-persona subagents
+(`*-sub-explore`, `*-sub-general-purpose`) — those ids are REUSED by future agents, so a 24h hide
+would suppress legitimate future subagents. Nudge only ever targets a top-level Claude session's
+resumable `session_id`; NEVER nudge the orchestrator (`claude-f015ccaa*`).
+
+**Evidence:** this session's Chrome transcript screenshots (card on each agent type, nudge-delivered
+feedback, post-dismiss roster 46→45) + DOM/network/hub-file assertions inline above (durable PNGs
+unobtainable — same WebGL-canvas capture limitation as phases 4/5). **End state: prod build with the
+dismiss fix rebuilt + UP on :3100.**
+
+**Next:** await "main"'s server-side nudge confirmation; then Phase 6 gate/close.
 
 ---
 
