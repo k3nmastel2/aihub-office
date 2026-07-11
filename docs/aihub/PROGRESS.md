@@ -73,13 +73,40 @@ pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2, ag
   poll, and doesn't apply to already-working agents (the common case — service users are
   working). Left as-is to avoid churn in the T12-sensitive status-transition cascade.
 
-Prod build rebuilt clean with the fixes (`npm run build`), ready to restart :3100.
+### Phase 5 LIVE CHROME PASS (2026-07-11, prod :3100, sole driver) — 5/6 confirmed; walk root-caused + fixed
+Ran the live pass against the real hub with "main" generating service activity (mcp__ailab__
+ailab_health hammer agents + my own ailab/chrome usage). Evidence = this session's Chrome
+screenshots (durable PNGs unobtainable — same WebGL-canvas limitation as Phase 4).
 
-**Next:** live Chrome self-verify on a prod build — services visible as glowing objects, HUD
-lists them, ≥1 live errand captured (agent walks to server rack / library / phone booth during
-real tool use). Requires live service_links on the hub (requested from "main"); services/
-service_links are empty until real service usage (a self-triggered sustained WebSearch on my own
-node → library errand is the backup). Then prod rebuild + left up.
+- **SERVICES HUD panel — CONFIRMED.** The floating bottom-left card renders live with REAL data:
+  e.g. "3/3 online · MLX SERVER ROOM · AI-Lab (in use by mlx-burst) · Claude-In-Chrome QA LAB
+  (in use by phase5-services)". Online/offline dots, mapped zone labels, and "in use by <agent>"
+  all correct and dynamic.
+- **Service health GLOW — CONFIRMED.** The QA-lab device rack shows the green health halo when the
+  claude-in-chrome service is online (zoom screenshot). Renders only for reported services.
+- **ailab→server-room mapping FIX (live-found).** The hub emits the local MLX/Ollama stack as the
+  `ailab` service, which serviceMap did NOT map → its errand + glow never fired. Added `ailab`
+  (umbrella) → server_room. HUD then showed "AI-Lab SERVER ROOM". +2 unit tests.
+- **Errand DATA PIPELINE — CONFIRMED end-to-end** (temporary gated console instrumentation, since
+  stripped): the OfficeScreen memo computed `errands: {<agent>: "server_room"/"qa_device"}` from
+  live service_links, and that reached RetroOffice3D's resolved hold maps → `useAgentTick`.
+- **Errand ROUTING — CONFIRMED** (temporary `__errWalk` probe): a server-room errand agent had
+  `interactionTarget:"server_room"`, `target:(268,624)` [server-room door approach], A*
+  `pathLen:21`, `state:"walking"` — the errand correctly triggers a routed walk with a valid path.
+- **FROZEN WALK — root-caused + FIXED (was P1).** Despite the valid path, position was frozen at
+  exactly (820,660) = `AIHUB_DOOR_ENTRANCE`. Root cause (Opus code-debug pass): the Phase-2 door
+  spawn had ZERO jitter, so simultaneous errand arrivals shared the identical nav cell and hit
+  `applyAgentCollisionBumps`' degenerate d===0 branch (clears path + retargets), discarding the
+  walk every frame. **Fix: jitter the door spawn (±80×60px).** Also memoized the merged errand
+  hold maps to cut re-plan churn. typecheck green; tests/unit/aihub 134/134.
+
+**CARRY-FORWARD (QA gate):** the post-jitter-fix VISUAL walk-advance (avatar physically traversing
+to the server room) was NOT captured live — the environment hit heavy T17/T21 connection drops +
+a renderer freeze after ~6 rebuild/reload cycles in one long session, blocking the final
+instrumented read. The routing/path are proven and the fix is well-reasoned (Opus root-cause + the
+`__errWalk` symptom pinpointing the zero-jitter door collision), but the physical traversal needs a
+confirming pass on a stable connection (analogous to the Phase-2 walk-OUT-animation carry-forward).
+Prod rebuilt with all fixes and left UP.
 
 ---
 

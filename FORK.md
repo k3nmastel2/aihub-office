@@ -66,4 +66,6 @@
 
 New aihub-owned files (Phase 5, no upstream conflict): `src/lib/aihub/serviceMap.ts`, `src/lib/aihub/serviceErrands.ts`, `src/lib/runtime/aihub/servicesStore.ts` (+ `provider.ts` publishes/reset — aihub namespace), `src/features/retro-office/objects/aihub/ServiceGlow.tsx`, `src/features/retro-office/core/navigation/libraryRoute.ts`, `src/features/office/components/panels/AihubServicesPanel.tsx`.
 
+Phase 5 live-pass fix (RetroOffice3D.tsx): `pickSpawnPoint` now jitters the aihub door spawn (±80×60px around `AIHUB_DOOR_ENTRANCE`) — the zero-jitter door made simultaneous service-errand arrivals share one nav cell and deadlock `applyAgentCollisionBumps` (d===0 clears path + retargets), freezing the walk. The four merged errand hold maps (`resolvedGithubReviewByAgentId`/`resolvedQaHoldByAgentId`/`resolvedPhoneBoothHoldByAgentId`) are memoized for identity stability. serviceMap adds `ailab`→server_room (the hub's umbrella inference-stack service id).
+
 Update the table whenever an upstream file is touched. Rows marked _(pending)_ are planned, not yet applied.
