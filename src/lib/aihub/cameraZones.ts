@@ -24,7 +24,7 @@ export type AihubZoneAnchor = {
 // Canvas anchors for the named zones (centers of the aihub server room / library / QA lab /
 // kitchen furniture clusters in `furnitureDefaults`).
 export const AIHUB_NAMED_ZONE_ANCHORS: readonly AihubZoneAnchor[] = [
-  { id: "serverRoom", label: "Server Room", cx: 930, cy: 640, zoom: 88 },
+  { id: "serverRoom", label: "Server Room", cx: 120, cy: 630, zoom: 88 },
   { id: "library", label: "Library", cx: 360, cy: 130, zoom: 94 },
   { id: "qaLab", label: "QA Lab", cx: 1470, cy: 95, zoom: 92 },
   { id: "kitchen", label: "Kitchen", cx: 880, cy: 60, zoom: 94 },

@@ -205,6 +205,28 @@ for all four colors), 7c collaboration bubbles (needs SendMessage traffic), PodR
 multi-pod session, 30-agent ≥30fps perf trace, day/night, hub-restart survival, the aihub-gym-nav
 follow-up, and pods-3-6 zone-button z-order.
 
+### Phase 7 GATE (2026-07-11): PASS-WITH-ISSUES → two items fixed
+QA gated Phase 7 PASS-WITH-ISSUES (roles/accents + LOD + 4/6 zone buttons + ping-pong walk-to-table
++ 47.5fps@48 + PodRug all confirmed). Two items returned:
+- **P1 (blocked close) — SERVER ROOM zone button did nothing — FIXED + self-verified.** Root cause:
+  the anchor was a GUESS `(930,640)` (empty mid-floor), while the aihub server room (from
+  `DEFAULT_SERVER_ROOM_ITEMS`) sits in the **bottom-left corner** (racks x50/125, terminal 110,645).
+  The camera WAS jumping — to a blank spot that looked like no move. Fix: anchor → `(120,630)`.
+  Verified live (before/after screenshots): clicking Server Room now visibly reframes the camera onto
+  the bottom-left server racks. Binary check PASS. (Other five buttons already worked; Library/QA/
+  Kitchen anchors verified correct, pods from `AIHUB_POD_LAYOUTS`.)
+- **P2 (bounded) — 2-agent ping-pong RALLY not sustained — SMALL FIX LANDED.** Mechanism: the rally
+  driver was a ONE-SHOT effect firing when the pair was first emitted; with 40+ churning idle agents,
+  one side is often still spawning/walking at that instant, so the effect (which is all-or-nothing on
+  `players.length===2 && both idle+free`) started NEITHER and wouldn't retry until the next 90s bucket
+  — exactly why QA saw a single walker. Fix: converted to a **2s retry interval** (reads the pair via
+  a ref) that starts the rally the moment both are present+idle+free, skips while they're mid-rally
+  (`pingPongUntil` guard), and re-rallies a stable pair after the session self-expires. typecheck +
+  tests green. Live 2-agent rally not captured in the observation windows (slow cold-boot + the dense
+  idle crowd near the pod bumping/slowing one walker en route — tied to the pre-existing idle-crowd
+  clustering follow-up); recommend QA re-confirm at re-check (non-blocking). Both fixes in a clean prod
+  rebuild UP on :3100. Evidence: `docs/aihub/evidence/phase7/`.
+
 ---
 
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all

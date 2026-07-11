@@ -2988,59 +2988,70 @@ export function RetroOffice3D({
 
 
   // Phase 7b: auto-start a ping-pong rally for the two idle agents the scheduler paired.
-  // Mirrors the manual table-click pairing (`handleDeskClick`, item.type === "pingpong")
-  // minus the camera jump. `aihubPingPongPair` is re-emitted each ping-pong rotation bucket,
-  // so a stable idle pair re-rallies after their previous (self-expiring) session ends. The
-  // reconcile tick preserves `pingPong*` for plain idle agents, so the rally survives; the
-  // per-frame tick ends it at `pingPongUntil`.
+  // Mirrors the manual table-click pairing (`handleDeskClick`, item.type === "pingpong") minus
+  // the camera jump. A short RETRY interval (not a one-shot on pair change) starts the rally as
+  // soon as BOTH paired agents are present + idle + free: with 40+ churning idle agents one side
+  // is often still spawning/walking when the pair is first emitted, and a one-shot would then
+  // start neither until the next 90s bucket (QA saw exactly one agent walk over). Once they're
+  // rallying the `pingPongUntil` guard skips re-assignment; after the session self-expires a
+  // stable pair re-rallies. The reconcile tick preserves `pingPong*` for plain idle agents.
+  const aihubPingPongPairRef = useRef(aihubPingPongPair);
+  aihubPingPongPairRef.current = aihubPingPongPair;
   useEffect(() => {
-    if (layoutPreset !== "aihub" || !aihubPingPongPair) return;
-    const lookup = renderAgentLookupRef.current;
-    const players = aihubPingPongPair
-      .map((id) => lookup.get(id))
-      .filter((agent): agent is RenderAgent => Boolean(agent));
-    if (players.length !== 2) return;
-    // Don't disturb agents already mid-rally or busy walking to a hold.
-    if (
-      !players.every(
-        (agent) => agent.status === "idle" && agent.pingPongUntil === undefined,
-      )
-    ) {
-      return;
-    }
-    const table = (furnitureRef.current ?? []).find(
-      (item) => item.type === "pingpong",
-    );
-    if (!table) return;
-    const targets = resolvePingPongTargets(table);
-    const now = Date.now();
-    players.forEach((agent, index) => {
-      const target = targets[index];
-      if (!target) return;
-      Object.assign(agent, {
-        targetX: target.x,
-        targetY: target.y,
-        path: planPath(agent.x, agent.y, target.x, target.y),
-        facing: target.facing,
-        state: "walking",
-        walkSpeed: Math.max(agent.walkSpeed, PING_PONG_APPROACH_SPEED),
-        pingPongUntil: now + PING_PONG_SESSION_MS,
-        pingPongTargetX: target.x,
-        pingPongTargetY: target.y,
-        pingPongFacing: target.facing,
-        pingPongPartnerId: players[1 - index]?.id,
-        pingPongTableUid: table._uid,
-        pingPongSide: index as 0 | 1,
-        pingPongPreviousWalkSpeed:
-          agent.pingPongPreviousWalkSpeed ?? agent.walkSpeed,
-      } satisfies Partial<RenderAgent>);
-    });
-    setMoodByAgentId((prev) => {
-      const next = { ...prev };
-      for (const agent of players) next[agent.id] = { emoji: "🏓", ts: now };
-      return next;
-    });
-  }, [aihubPingPongPair, layoutPreset]);
+    if (layoutPreset !== "aihub") return;
+    const tryStartRally = () => {
+      const pair = aihubPingPongPairRef.current;
+      if (!pair) return;
+      const lookup = renderAgentLookupRef.current;
+      const players = pair
+        .map((id) => lookup.get(id))
+        .filter((agent): agent is RenderAgent => Boolean(agent));
+      if (players.length !== 2) return;
+      // Both must be present, idle, and not already mid-rally.
+      if (
+        !players.every(
+          (agent) => agent.status === "idle" && agent.pingPongUntil === undefined,
+        )
+      ) {
+        return;
+      }
+      const table = (furnitureRef.current ?? []).find(
+        (item) => item.type === "pingpong",
+      );
+      if (!table) return;
+      const targets = resolvePingPongTargets(table);
+      const now = Date.now();
+      players.forEach((agent, index) => {
+        const target = targets[index];
+        if (!target) return;
+        Object.assign(agent, {
+          targetX: target.x,
+          targetY: target.y,
+          path: planPath(agent.x, agent.y, target.x, target.y),
+          facing: target.facing,
+          state: "walking",
+          walkSpeed: Math.max(agent.walkSpeed, PING_PONG_APPROACH_SPEED),
+          pingPongUntil: now + PING_PONG_SESSION_MS,
+          pingPongTargetX: target.x,
+          pingPongTargetY: target.y,
+          pingPongFacing: target.facing,
+          pingPongPartnerId: players[1 - index]?.id,
+          pingPongTableUid: table._uid,
+          pingPongSide: index as 0 | 1,
+          pingPongPreviousWalkSpeed:
+            agent.pingPongPreviousWalkSpeed ?? agent.walkSpeed,
+        } satisfies Partial<RenderAgent>);
+      });
+      setMoodByAgentId((prev) => {
+        const next = { ...prev };
+        for (const agent of players) next[agent.id] = { emoji: "🏓", ts: now };
+        return next;
+      });
+    };
+    tryStartRally();
+    const iv = window.setInterval(tryStartRally, 2000);
+    return () => window.clearInterval(iv);
+  }, [layoutPreset]);
 
   // Phase 7d (T24): per-zone camera-jump presets for the aihub floor — the four named work
   // zones plus the six session pods (centers from the live pod layout). Static, computed once.
