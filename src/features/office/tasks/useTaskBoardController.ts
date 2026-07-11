@@ -677,6 +677,7 @@ export const useTaskBoardController = ({
   client,
   status,
   cronEnabled = true,
+  remoteTasksEnabled = true,
   agents,
   runLog,
   standup,
@@ -686,6 +687,9 @@ export const useTaskBoardController = ({
   client: GatewayClient;
   status: GatewayStatus;
   cronEnabled?: boolean;
+  // False on runtimes without the gateway `tasks.*` methods (e.g. AI Hub, whose Kanban is a
+  // read-only source-switch): skip the remote-task fetch so it can't throw a banner/rejection.
+  remoteTasksEnabled?: boolean;
   agents: AgentState[];
   runLog: RunRecord[];
   standup: OfficeStandupController;
@@ -948,6 +952,14 @@ export const useTaskBoardController = ({
   }, [applySharedTaskRecord, sharedTasksSupported]);
 
   const refreshRemoteTasks = useCallback(async () => {
+    if (!remoteTasksEnabled) {
+      // Runtime has no gateway tasks.* (aihub): never fetch, and clear any stale error/state
+      // from a prior adapter so the read-only source-switch board shows no connection banner.
+      setGatewayTasksSupported("unsupported");
+      setGatewayTasksError(null);
+      setGatewayTasksLoading(false);
+      return;
+    }
     if (status !== "connected") {
       setGatewayTasksLoading(false);
       setGatewayTasksError(null);
@@ -975,7 +987,7 @@ export const useTaskBoardController = ({
     } finally {
       setGatewayTasksLoading(false);
     }
-  }, [applyGatewayTaskRecord, client, status]);
+  }, [applyGatewayTaskRecord, client, status, remoteTasksEnabled]);
 
   useEffect(() => {
     void refreshCronJobs();

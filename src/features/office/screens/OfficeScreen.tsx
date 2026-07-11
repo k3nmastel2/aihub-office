@@ -218,7 +218,11 @@ import {
   computeNameplateChips,
   resolveAgentBadge,
 } from "@/lib/aihub/badges";
-import { buildAihubTaskCardsByStatus } from "@/lib/aihub/taskCards";
+import {
+  buildAihubTaskCardsByStatus,
+  resolveAihubBoardError,
+  shouldFetchRemoteGatewayTasks,
+} from "@/lib/aihub/taskCards";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -3192,6 +3196,7 @@ export function OfficeScreen({
     client,
     status,
     cronEnabled: runtimeSupportsCron,
+    remoteTasksEnabled: shouldFetchRemoteGatewayTasks(activeAdapterType),
     agents: state.agents,
     runLog,
     standup: standupController,
@@ -5099,9 +5104,11 @@ export function OfficeScreen({
           taskBoardActiveRuns={taskBoard.activeRuns}
           taskBoardCronJobs={taskBoard.cronJobs}
           taskBoardCronLoading={taskBoard.cronLoading}
-          taskBoardCronError={
-            taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
-          }
+          taskBoardCronError={resolveAihubBoardError(activeAdapterType, {
+            sharedTasksError: taskBoard.sharedTasksError,
+            gatewayTasksError: taskBoard.gatewayTasksError,
+            cronError: taskBoard.cronError,
+          })}
           taskBoardCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
           onTaskBoardCreateCard={() => {
             taskBoard.createManualCard();
@@ -5113,9 +5120,12 @@ export function OfficeScreen({
           onTaskBoardUpdateCard={taskBoard.updateCard}
           onTaskBoardDeleteCard={taskBoard.removeCard}
           onTaskBoardRefreshCronJobs={() => {
-            void taskBoard.refreshSharedTasks();
-            void taskBoard.refreshRemoteTasks();
-            void taskBoard.refreshCronJobs();
+            // Fire-and-forget refreshes: each catches internally, but guard the caller so a
+            // rejection (e.g. an unsupported gateway path) can never surface as an unhandled
+            // promise when the board is opened on the aihub floor.
+            void taskBoard.refreshSharedTasks().catch(() => {});
+            void taskBoard.refreshRemoteTasks().catch(() => {});
+            void taskBoard.refreshCronJobs().catch(() => {});
           }}
         />
         {jukeboxOpen ? (
@@ -5311,9 +5321,9 @@ export function OfficeScreen({
               onUpdateCard={taskBoard.updateCard}
               onDeleteCard={taskBoard.removeCard}
               onRefreshCronJobs={() => {
-                void taskBoard.refreshSharedTasks();
-                void taskBoard.refreshRemoteTasks();
-                void taskBoard.refreshCronJobs();
+                void taskBoard.refreshSharedTasks().catch(() => {});
+                void taskBoard.refreshRemoteTasks().catch(() => {});
+                void taskBoard.refreshCronJobs().catch(() => {});
               }}
             />
           }

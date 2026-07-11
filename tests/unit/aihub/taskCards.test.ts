@@ -4,6 +4,8 @@ import {
   buildAihubTaskCards,
   buildAihubTaskCardsByStatus,
   mapHubTaskStatusToBoard,
+  resolveAihubBoardError,
+  shouldFetchRemoteGatewayTasks,
 } from "@/lib/aihub/taskCards";
 import { normalizeHubSnapshot, buildAgentSeeds } from "@/lib/runtime/aihub/snapshot";
 import type { AgentHubMetadata, HubTaskItem } from "@/lib/runtime/aihub/types";
@@ -27,6 +29,40 @@ const hub = (items: HubTaskItem[] | null): AgentHubMetadata => ({
   bgTasks: null,
   canNudge: false,
   hubSessionId: null,
+});
+
+describe("resolveAihubBoardError", () => {
+  it("suppresses gateway/store/cron errors on the aihub floor (read-only mirror)", () => {
+    expect(
+      resolveAihubBoardError("aihub", {
+        sharedTasksError: "Shared task store route is unavailable.",
+        gatewayTasksError: "Gateway is not connected.",
+        cronError: "boom",
+      }),
+    ).toBeNull();
+  });
+
+  it("passes the first real error through on other adapters", () => {
+    expect(
+      resolveAihubBoardError("openclaw", {
+        sharedTasksError: null,
+        gatewayTasksError: "Gateway is not connected.",
+        cronError: "boom",
+      }),
+    ).toBe("Gateway is not connected.");
+    expect(
+      resolveAihubBoardError("demo", { sharedTasksError: null, gatewayTasksError: null, cronError: null }),
+    ).toBeNull();
+  });
+});
+
+describe("shouldFetchRemoteGatewayTasks", () => {
+  it("is false only for the aihub runtime (no gateway tasks.* methods)", () => {
+    expect(shouldFetchRemoteGatewayTasks("aihub")).toBe(false);
+    expect(shouldFetchRemoteGatewayTasks("openclaw")).toBe(true);
+    expect(shouldFetchRemoteGatewayTasks("demo")).toBe(true);
+    expect(shouldFetchRemoteGatewayTasks(null)).toBe(true);
+  });
 });
 
 describe("mapHubTaskStatusToBoard", () => {

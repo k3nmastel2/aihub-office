@@ -96,3 +96,27 @@ export const buildAihubTaskCardsByStatus = (
   agents: AihubTaskAgent[],
 ): Record<TaskBoardStatus, TaskBoardCard[]> =>
   groupTaskCardsByStatus(buildAihubTaskCards(agents));
+
+// On the aihub floor the Kanban is a read-only mirror fed entirely by the source-switch
+// above — it does NOT use the gateway task/cron path, so those errors ("Gateway is not
+// connected." during the transient boot, "AI Hub runtime does not implement tasks.list.",
+// shared-store 404s) are irrelevant noise and must not surface as the board's red banner.
+// Other adapters keep their real connection/error banner.
+export const resolveAihubBoardError = (
+  adapterType: string | null | undefined,
+  errors: {
+    sharedTasksError?: string | null;
+    gatewayTasksError?: string | null;
+    cronError?: string | null;
+  },
+): string | null => {
+  if (adapterType === "aihub") return null;
+  return errors.sharedTasksError ?? errors.gatewayTasksError ?? errors.cronError ?? null;
+};
+
+// The gateway task fetch (`tasks.list`) is unsupported by the aihub runtime, so it must be
+// skipped on the aihub floor — otherwise it throws every poll (surfacing as the banner and
+// a potential unhandled rejection). True for every non-aihub adapter.
+export const shouldFetchRemoteGatewayTasks = (
+  adapterType: string | null | undefined,
+): boolean => adapterType !== "aihub";

@@ -85,7 +85,28 @@ live this session.)
   immersive board directly (fed the read-only live hub-tasks source-switch). Additive, gated,
   FORK.md logged. Other floors keep the upstream gate.
 
-### Phase 4 status — IMPLEMENTED; PROD-verified (chips + blocked badge + pods + desk stacks + Kanban gate); awaiting one QA gate
+### Phase 4 QA GATE (2026-07-11): chips PASS · blocked badge CLEAN PASS · Kanban data EXACT MATCH · one P1 (FIXED)
+QA gated the prod build. Chips, blocked badge (via the tab-only intercept), and Kanban card
+data all passed. **P1: the immersive Kanban showed a red "Gateway is not connected" banner the
+whole time (+ an uncaught promise on open)** — my gate-bypass exposed that the board's task/cron
+refresh runs the gateway `tasks.*` path, which the aihub runtime doesn't implement, so every poll
+threw ("Gateway is not connected." during the transient boot, then "AI Hub runtime does not
+implement tasks.list.") — and `isUnsupportedTaskGatewayError` only recognizes `GatewayResponseError`,
+not the aihub plain `Error`s, so it surfaced as the banner instead of being classified unsupported.
+**FIX (least-invasive, aihub-gated):** (1) `useTaskBoardController` gains `remoteTasksEnabled`;
+`refreshRemoteTasks` no-ops + clears state when false; OfficeScreen passes
+`shouldFetchRemoteGatewayTasks(activeAdapterType)` (false only on aihub) → the failing fetch never
+runs on the aihub floor. (2) The board error prop routes through `resolveAihubBoardError` (null on
+aihub — the read-only source-switch mirror has no gateway/store banner). (3) The board Refresh
+handlers `.catch(()=>{})` their fire-and-forget refreshes (the failing call was the likely uncaught
+source; belt-and-suspenders). Pure seam unit-tested (`resolveAihubBoardError` ×2 +
+`shouldFetchRemoteGatewayTasks` ×1). typecheck green; tests/unit/aihub 94/94; taskBoardController
+10/10 + taskBoardView 1/1 unchanged; full unit only the 5 known pre-existing (+ the known-flaky
+`useAgentSettingsMutationController`, passes 22/22 isolated). VERIFICATION rides the next consolidated
+prod rebuild (banner-gone + no-uncaught). QA carry-forward: single-agent paper-stack re-check (QA
+couldn't re-catch it live in the 34-agent roaming crowd; my instrumented prod verification stands).
+
+### Phase 4 status — IMPLEMENTED; PROD-verified (chips + blocked badge + pods + desk stacks + Kanban); QA P1 banner FIXED (code); pending banner-gone re-verify on next prod rebuild
 
 The office now SHOWS each agent's work state. Four vertical pieces, all pure decision logic
 in `src/lib/aihub/` (unit-tested) with the coordinates/materials in the renderer:
