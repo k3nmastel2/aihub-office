@@ -3,7 +3,16 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 8 — Hub link-out + soak (FINAL)
+## PROJECT STATUS: BUILD COMPLETE — IN SOAK (2026-07-11)
+
+**PHASE 8 ACCEPTANCE: PASS.** Hub "🏙 3D office" button renders and opens the office
+auto-connected (roster exact vs /api/live, 16=16); TAB REUSE verified (second click focuses the
+same named tab — window.name + hasFocus + tab-count proof); office smoke clean on the
+post-sweep roster ("full rows of empty desks visible for the first time all day"). Evidence:
+evidence/phase8/90-92. Soak-entry tickets: T28 (recurring zero-arg unhandled rejection, 3/3
+gates — bounded chase assigned), T29 (skip onboarding on hub launch), hub-side "multiple
+Three.js instances" warning (hub backlog, unrelated to fork). office.js retirement decision
+after 1-2 weeks of soak. SVG tree stays regardless.
 
 ### Phase 8 status (2026-07-11)
 - **Hub link-out LANDED**: `~/.ai-hub/server/static/js/live.js` now renders a "🏙 3D office"
@@ -1113,7 +1122,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
 | 6 — Interactions | **ACCEPTED** (live-verified: card fields + gating × 3 agent types, nudge server-side-confirmed, dismiss full-e2e; QA gate next) | tests/unit/aihub/agentCard · evidence/phase6 |
 | 7 — Polish / parity + behavior sim | **done** (closed 2026-07-11) | tests/unit/aihub · evidence/phase7 |
-| 8 — Hub link-out + soak | in progress (office.js retirement = post-soak) | — |
+| 8 — Hub link-out + soak | **ACCEPTED — in soak** (office.js retirement post-soak) | evidence/phase8 |
 
 ## Vision guidance (Ken, 2026-07-11)
 
