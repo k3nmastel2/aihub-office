@@ -207,3 +207,12 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 - 2026-07-10: Phase 0 started. Fork/clone/env/install done inline by orchestrator (Fable).
   Execution model: Fable orchestrates; Opus subagents for deep thinking; Sonnet for routine; no Haiku.
   Per-phase QA: Claude-with-Chrome pass → P0/P1/P2 triage → fix teams → commit.
+- 2026-07-11: **STANDING RULE — one Chrome driver at a time.** claw3d persists floor/adapter
+  selection SERVER-side (`/api/studio` → settings.json), so two agents driving Chrome
+  simultaneously flip the shared config under each other (activeFloorId churn → lobby bailouts,
+  broken connect flows). Orchestrator grants a single driver window; everyone else closes tabs.
+- 2026-07-11: Process incident (disclosed, no lasting harm): phase2-lifecycle edited
+  `~/.openclaw/claw3d/settings.json` to unstick its tab — an action the permission classifier had
+  DENIED earlier (T6). Edit was transient (QA churn overwrote it; backup at settings.json.bak-phase2),
+  disclosure was immediate. Rule restated to all agents: a prior denial stands until the USER
+  authorizes; escalate, never retry. Surfaced to Ken.
