@@ -2,6 +2,18 @@
 
 _Produced by a 5-subagent read-only sweep of OfficeScreen.tsx, RetroOffice3D.tsx, office hooks/taskboard, agents/state plumbing, lib/office + retro-office systems. Context: "Maximum update depth exceeded" residual ~7/min sporadic bursts under live churn, after the sustained loop was fixed (commit 5a9f9cf)._
 
+> **RESOLVED 2026-07-10 — T12 IS A DEV-BUILD ARTIFACT (production build verified clean).**
+> A production build (`next build` + `PORT=3100 npm start`) under live hub churn at fleet scale
+> (roster 24→29, done-node cycling, feed verified alive throughout) shows **ZERO** "Maximum update
+> depth exceeded", **ZERO** minified React error #185, **ZERO** uncaught #185, and **ZERO** canvas
+> blackouts across a fresh fleet-scale mount + ~6 min of feed-verified churn soaks (incl. one
+> continuous 165s window). The loop, QA's 142-error burst, and the blackouts reproduce ONLY in the
+> `next dev` build — a dev-only amplification (React StrictMode double-invoke + dev-mode update-depth
+> console warnings + HMR reconnects). **No production defect; no code change shipped.** The step-2
+> RAF-batching fix was NOT needed (measurement zeroed at step 1). Full evidence + method: the
+> **"STEP-1 RESOLUTION"** section at the bottom of this file. The dev-build console noise is expected
+> and now documented — do not chase it; verify any suspected regression on a prod build first.
+
 ## Confirmed negatives (ruled out)
 - `src/lib/office/*` (all 24 files): zero setState/store-set sites — pure functions/persistence.
 - `objects/agents.tsx`, `NavigationSystem.tsx`, `environment.tsx`, `RemoteOfficeLayoutPreview.tsx`: refs/mesh mutation only, zero setState.
@@ -143,3 +155,56 @@ The measured, shipped baseline for the T12 debt (dev build, live hub churn):
   occur in a production build.
 
 Evidence: `evidence/phase1/10-close-r4-connected.png`, `11-close-r4-plus3min.png`.
+
+## STEP-1 RESOLUTION — T12 is DEV-ONLY (production build, 2026-07-10)
+
+The T12 stabilization sprint opened with a falsification-ordered plan; **step 1 (reproduce on a
+production build first) resolved it** — the loop does not exist in production, so steps 2-4
+(RAF `livePatchQueue` batching, store.tsx value-diffing, React Profiler) were correctly NOT applied.
+
+**Method.** Stopped the `next dev` server on :3100; ran `npm run build` (clean) + `PORT=3100 npm start`
+(prod bundle, no StrictMode, no HMR, no dev overlay). Hub :3000 + demo gateway :18789 left untouched.
+Cold tab auto-connected to AI Hub Live. A console interceptor counted **all three surfacing paths** of
+React invariant #185 — the dev text `Maximum update depth exceeded`, the prod-minified `Minified React
+error #185` / `react.dev/errors/185` (invariant #185 IS still thrown in production, just minified — a
+real loop WOULD show), and uncaught `error` events — plus `webglcontextlost` for blackout detection.
+Every window recorded **feed-poll count per bucket** so a stalled feed could never masquerade as "clean".
+
+**Measurements (all on the prod build, live hub churn):**
+
+| Window | Roster / churn | Feed | update-depth | #185 (min) | uncaught | ctxLost / blackout |
+|---|---|---|---|---|---|---|
+| Fresh fleet-scale MOUNT | 27 nodes | n/a (native console) | **0** | **0** | **0** | **0** |
+| Baseline 50s | 24, 1→4 working | alive (3s) | **0** | **0** | **0** | **0** |
+| Soak 140s | 27, 4→8 working | verified alive every bucket | **0** | **0** | **0** | **0** |
+| **Final soak 165s (continuous)** | 28→29, 4 active/3 winding/4 done, done-cycling | verified alive every bucket (5 polls/15s) | **0** | **0** | **0** | **0** |
+
+~6 min cumulative feed-verified prod observation at 24-29 nodes with active churn + done-node cycling →
+**absolute zero**. Screenshot confirms a fully-rendered office at 27 nodes with burst-churn agents active,
+no blackout (`evidence/phase1/` prod-soak capture). Contrast the DEV baselines this sprint was chartered
+against: QA round 4 = 103 update-depth/3min; escalation = 142-error burst + repeated full-canvas blackouts
+requiring hard reloads at 25 agents / 5 done nodes.
+
+**Mechanism (why dev-only).** Invariant #185 is a real thrown Error in prod too, so the absence of it in
+prod proves there is **no true infinite update loop** in the shipped bundle. The dev-only trigger is
+amplification: `next dev` runs React in development with **StrictMode double-invocation** of render/effect
+bodies and a stricter, console-emitting update-depth detector. The documented `officeTriggerState` /
+`animationNowMs` identity-churn (HIGH #11/#13/#14) produces a benign extra render or two in prod — under
+the 50-update cap — but StrictMode's double-invoke pushes the same pattern over the cap in dev, emitting
+the warning storm; HMR reconnects add further bursts. Prod single-invokes → stays under the cap → silent.
+This is consistent with all three round-3 diagnosis lessons (the dep churn was real; it only crosses the
+error threshold under dev instrumentation) and retires the "unresolved paradox" as a dev-semantics effect,
+not a production bug.
+
+**Disposition.** T12 = **CLOSED for production** (no shipped defect, no code change). The identity-churn
+sites (#11/#13/#14, store.tsx #2/#3) remain valid *performance/hygiene* backlog — not correctness debt —
+and if ever addressed, the RAF `livePatchQueue` re-enable (arch finding, OfficeScreen ~2845) is still the
+highest-leverage structural cleanup. The dev-build console noise + dev-overlay leak are expected artifacts;
+Phase 3+ should verify any suspected update-depth regression on a **prod build** before triaging.
+
+**Separate observation (NOT T12, flagged for Phase 3).** On a long-lived tab the 3s live-feed
+`setInterval` (`provider.ts` startLiveFeed) stopped after ~2.5 min while the UI still read CONNECTED —
+a transient `stopLiveFeed` with no restart (the `useRuntimeConnection` effect keyed on `[provider, status]`;
+`stopLiveFeed` clears the interval, and if the re-run early-returns on a momentary non-`connected` status
+the feed stays dead). A reload cleared it. Feed-reliability item, independent of the update-depth loop;
+worth a guard that re-arms the feed whenever status is `connected` and `feedTimer === null`.
