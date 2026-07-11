@@ -223,6 +223,7 @@ import {
   memoizedRoleWardrobe,
   resolveToolAccent,
 } from "@/lib/aihub/roles";
+import { computeIdleBehaviors } from "@/lib/aihub/idleBehaviors";
 import {
   buildAihubTaskCardsByStatus,
   resolveAihubBoardError,
@@ -4688,6 +4689,58 @@ export function OfficeScreen({
     aihubServiceErrandHoldsRef.current = nextHolds;
     return nextHolds;
   }, [state.agents, aihubServicesSnapshot, activeAdapterType]);
+  // Phase 7b — honest idle behaviors: the pure scheduler decides who plays ping-pong (a
+  // deterministic, rotating pair when ≥2 idle) and who works out (rotating gym cohort); the
+  // rest are left to the existing idle roam, which already drifts toward the lounge couches.
+  // Idle = the hub's own `idle` status, minus blocked / leaving agents. Two refs keep the
+  // outputs identity-stable: the gym hold map only changes when its content changes, and the
+  // ping-pong pair array is re-emitted each rotation bucket (so a stable pair re-rallies after
+  // their self-expiring session) or when the members change.
+  const aihubIdleGymHoldRef = useRef<Record<string, boolean>>(EMPTY_BOOLEAN_RECORD);
+  const aihubPingPongRef = useRef<{
+    bucket: number;
+    key: string;
+    pair: readonly [string, string] | null;
+  }>({ bucket: -1, key: "", pair: null });
+  const aihubIdleBehaviors = useMemo(() => {
+    if (activeAdapterType !== "aihub") {
+      aihubIdleGymHoldRef.current = EMPTY_BOOLEAN_RECORD;
+      aihubPingPongRef.current = { bucket: -1, key: "", pair: null };
+      return {
+        gymHold: EMPTY_BOOLEAN_RECORD,
+        pingPongPair: null as readonly [string, string] | null,
+      };
+    }
+    const idleIds = state.agents
+      .filter(
+        (agent) =>
+          agent.hub &&
+          agent.hub.hubStatus === "idle" &&
+          agent.hub.badge !== "blocked" &&
+          !leavingByAgentId[agent.agentId] &&
+          !leavingInPlaceByAgentId[agent.agentId],
+      )
+      .map((agent) => agent.agentId);
+    const plan = computeIdleBehaviors(idleIds, animationNowMs);
+    const nextGym = plan.gymHoldByAgentId as Record<string, boolean>;
+    const gymHold = shallowEqualBooleanRecord(nextGym, aihubIdleGymHoldRef.current)
+      ? aihubIdleGymHoldRef.current
+      : (aihubIdleGymHoldRef.current = nextGym);
+    const key = plan.pingPongPair ? [...plan.pingPongPair].sort().join("|") : "";
+    const prev = aihubPingPongRef.current;
+    let pingPongPair = prev.pair;
+    if (plan.pingPongBucket !== prev.bucket || key !== prev.key) {
+      pingPongPair = plan.pingPongPair;
+      aihubPingPongRef.current = { bucket: plan.pingPongBucket, key, pair: pingPongPair };
+    }
+    return { gymHold, pingPongPair };
+  }, [
+    state.agents,
+    activeAdapterType,
+    animationNowMs,
+    leavingByAgentId,
+    leavingInPlaceByAgentId,
+  ]);
   // Agent id → display name, for the services HUD "in use by <name>" line.
   const aihubAgentNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -5111,6 +5164,8 @@ export function OfficeScreen({
               : deskAssignmentByDeskUid
           }
           aihubServiceErrands={aihubServiceErrands}
+          aihubIdleGymHoldByAgentId={aihubIdleBehaviors.gymHold}
+          aihubPingPongPair={aihubIdleBehaviors.pingPongPair}
           aihubServicesSnapshot={
             activeAdapterType === "aihub" ? aihubServicesSnapshot : null
           }

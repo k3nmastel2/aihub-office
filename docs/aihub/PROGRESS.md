@@ -42,6 +42,50 @@ failures (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydra
 **Next 7a step:** live Chrome self-verify (roles read as distinct silhouettes; per-tool accent
 strips visible on nameplates across claude/codex/gemini/hermes). Then 7b (honest idle behaviors).
 
+### Phase 7b — HONEST IDLE BEHAVIORS (ping-pong + gym rotation) — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
+
+Idle agents stop roaming aimlessly: a deterministic scheduler rotates them through honest
+off-duty behaviors, driving ONLY the office's existing hold/route systems (no new navigation).
+
+**Done (pure scheduler in `src/lib/aihub/idleBehaviors.ts`, unit-tested; wiring additive/gated):**
+- **`src/lib/aihub/idleBehaviors.ts` (new, pure):** `computeIdleBehaviors(idleIds, nowMs, cfg)` →
+  `{ pingPongPair, pingPongBucket, gymHoldByAgentId, behaviorByAgentId }`. Deterministic via
+  bucket-salted FNV hashes: whenever ≥2 idle, the two agents ranked first by `hash(id:pp:bucket)`
+  are the ping-pong pair (rotates each 90s bucket — chosen > the 60s session so pairs never
+  overlap at the single table); the rest are sent to the gym at ~30% per 45s bucket
+  (`hash(id:gym:bucket)`); everyone else "lounges" (left to the existing idle roam, which already
+  drifts toward the lounge couches). Ping-pong agents are never simultaneously sent to the gym.
+  `idleBehaviorPlanSignature` for caller identity stability.
+- **Ping-pong wiring (RetroOffice3D, aihub-gated effect):** auto-starts a rally for the scheduled
+  pair by assigning the SAME `pingPong*` fields the manual table-click uses (`handleDeskClick`),
+  minus the camera jump — the existing pairing/paddle/ball physics + 🏓 mood take over, and the
+  session self-expires via the per-frame tick. The reconcile tick preserves `pingPong*` for plain
+  idle agents (all its clear-branches gate on `effectiveStatus === "working"/"error"`), so the
+  rally survives. `aihubPingPongPair` is re-emitted each rotation bucket so a stable pair
+  re-rallies after its previous session ends.
+- **Gym wiring (RetroOffice3D):** the idle gym cohort OR-merges into `resolvedGymHoldByAgentId`
+  (now a memo, base-ref-preserving) → the existing gym route + workout animation. NOTE: a gym
+  hold sets the tick's `effectiveStatus = "working"`, so a working-out agent reads with a green
+  dot ("busy at the gym") — LOCATION is the honest signal; ping-pong players stay idle. Deliberate
+  minority behavior (~30% of the non-ping-pong idle cohort).
+- **Scheduling source (OfficeScreen):** an aihub-gated `aihubIdleBehaviors` memo runs the scheduler
+  over the hub-`idle` roster (excluding blocked + leaving/done) at the quantized `animationNowMs`;
+  two refs keep the gym map + ping-pong pair identity-stable (no churn within a bucket).
+
+**Scope note (honest):** lounge = the EXISTING idle roam (already couch-biased via
+`socialFurniture`/`awayFurniture` targeting). Dedicated couch-sit and kitchen/coffee SIT routes
+are deferred — they require NEW navigation (`resolve*Route` + interactionTarget), which this slice
+explicitly excludes ("drive existing hold/route systems only"). Delivered honest behaviors:
+ping-pong (≥2 idle) + gym workouts + lounge drift.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 185/185 (12 new
+`idleBehaviors.test.ts`: pairing ≥2 / determinism / order-independence / per-bucket rotation /
+ping-pong∩gym exclusion / gym-percent bounds / de-dupe / signature stability) · full `tests/unit/`
+→ only the 5 known pre-existing failures, zero new.
+
+**Next 7b step:** combined live Chrome self-verify with 7a (≥2 parked idle teammates → watch a
+pair walk to the table and rally; some idle agents at the gym; the rest lounging — not roaming).
+
 ---
 
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all

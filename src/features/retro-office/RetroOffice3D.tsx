@@ -2392,6 +2392,8 @@ export function RetroOffice3D({
   qaHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   qaTestingAgentId = null,
   aihubServiceErrands = EMPTY_SERVICE_ERRAND_HOLD_MAPS,
+  aihubIdleGymHoldByAgentId = EMPTY_BOOLEAN_RECORD,
+  aihubPingPongPair = null,
   aihubServicesSnapshot = null,
   standupMeeting = null,
   standupAutoOpenBoard = true,
@@ -2515,6 +2517,11 @@ export function RetroOffice3D({
   // serverRoom/phoneBooth/qaDevice OR-merge into the matching existing holds; library drives
   // the new open-floor reading route. Empty for demo/openclaw floors.
   aihubServiceErrands?: ServiceErrandHoldMaps;
+  // aihub honest idle behaviors (Phase 7b): idle agents assigned a gym workout this bucket
+  // (OR-merged into the gym hold) + the two idle agents deterministically paired at the
+  // ping-pong table. Both drive existing systems only. Empty/null off the aihub floor.
+  aihubIdleGymHoldByAgentId?: Record<string, boolean>;
+  aihubPingPongPair?: readonly [string, string] | null;
   // aihub live services slice (Phase 5): drives the world-object health glows. Null off-floor.
   aihubServicesSnapshot?: ServicesSnapshot | null;
   standupMeeting?: StandupMeeting | null;
@@ -2633,8 +2640,13 @@ export function RetroOffice3D({
   );
   const resolvedDeskHoldByAgentId =
     animationState?.deskHoldByAgentId ?? deskHoldByAgentId;
-  const resolvedGymHoldByAgentId =
-    animationState?.gymHoldByAgentId ?? gymHoldByAgentId;
+  // Phase 7b: idle agents scheduled for a workout OR-merge into the gym hold (existing gym
+  // route + workout animation). Memoized + base-ref-preserving so the empty case never churns.
+  const gymBase = animationState?.gymHoldByAgentId ?? gymHoldByAgentId;
+  const resolvedGymHoldByAgentId = useMemo(
+    () => mergeBooleanHoldMaps(gymBase, aihubIdleGymHoldByAgentId),
+    [gymBase, aihubIdleGymHoldByAgentId],
+  );
   const resolvedSmsBoothHoldByAgentId =
     animationState?.smsBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
   // aihub service errands (Phase 5) OR-merge into the routes they reuse: voice → phone booth,
@@ -2960,6 +2972,61 @@ export function RetroOffice3D({
   useEffect(() => {
     furnitureRef.current = furniture;
   }, [furniture]);
+
+  // Phase 7b: auto-start a ping-pong rally for the two idle agents the scheduler paired.
+  // Mirrors the manual table-click pairing (`handleDeskClick`, item.type === "pingpong")
+  // minus the camera jump. `aihubPingPongPair` is re-emitted each ping-pong rotation bucket,
+  // so a stable idle pair re-rallies after their previous (self-expiring) session ends. The
+  // reconcile tick preserves `pingPong*` for plain idle agents, so the rally survives; the
+  // per-frame tick ends it at `pingPongUntil`.
+  useEffect(() => {
+    if (layoutPreset !== "aihub" || !aihubPingPongPair) return;
+    const lookup = renderAgentLookupRef.current;
+    const players = aihubPingPongPair
+      .map((id) => lookup.get(id))
+      .filter((agent): agent is RenderAgent => Boolean(agent));
+    if (players.length !== 2) return;
+    // Don't disturb agents already mid-rally or busy walking to a hold.
+    if (
+      !players.every(
+        (agent) => agent.status === "idle" && agent.pingPongUntil === undefined,
+      )
+    ) {
+      return;
+    }
+    const table = (furnitureRef.current ?? []).find(
+      (item) => item.type === "pingpong",
+    );
+    if (!table) return;
+    const targets = resolvePingPongTargets(table);
+    const now = Date.now();
+    players.forEach((agent, index) => {
+      const target = targets[index];
+      if (!target) return;
+      Object.assign(agent, {
+        targetX: target.x,
+        targetY: target.y,
+        path: planPath(agent.x, agent.y, target.x, target.y),
+        facing: target.facing,
+        state: "walking",
+        walkSpeed: Math.max(agent.walkSpeed, PING_PONG_APPROACH_SPEED),
+        pingPongUntil: now + PING_PONG_SESSION_MS,
+        pingPongTargetX: target.x,
+        pingPongTargetY: target.y,
+        pingPongFacing: target.facing,
+        pingPongPartnerId: players[1 - index]?.id,
+        pingPongTableUid: table._uid,
+        pingPongSide: index as 0 | 1,
+        pingPongPreviousWalkSpeed:
+          agent.pingPongPreviousWalkSpeed ?? agent.walkSpeed,
+      } satisfies Partial<RenderAgent>);
+    });
+    setMoodByAgentId((prev) => {
+      const next = { ...prev };
+      for (const agent of players) next[agent.id] = { emoji: "🏓", ts: now };
+      return next;
+    });
+  }, [aihubPingPongPair, layoutPreset]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
