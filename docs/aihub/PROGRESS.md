@@ -3,9 +3,9 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 6 — Interactions (nudge / dismiss / read-only history)
+## Current phase: 6 — Interactions (nudge / dismiss / read-only history) — SLICE ACCEPTED (QA gate next)
 
-### Phase 6 status — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
+### Phase 6 status — ACCEPTED (unit+typecheck green; live Chrome pass PASS; slice accepted by "main")
 
 The office becomes INTERACTIVE. Clicking an aihub avatar already opens claw3d's chat slide-out
 (`handleAgentClick` → `onAgentChatSelect` → `focusedChatAgent`); on the aihub floor that slide-out
@@ -77,12 +77,15 @@ asserted from the live DOM.
   office." (the exact `resolveNudgeAffordance` reasons).
 - **DISMISS GATING — CONFIRMED.** Enabled on idle (dismiss-me) + done (4575d616); disabled on
   working/active (orchestrator, Hermes) — "Dismiss once the agent is idle or done."
-- **LIVE NUDGE (cleared `claude-4575d616`) — DELIVERED.** Typed the bounded ping, clicked Nudge →
-  provider `chat.send` → proxy → hub `/api/live/nudge` returned 200 (card showed "Nudge delivered —
-  session resumed.", input cleared). Per the hub code a 200 means it validated the session exists and
-  launched `claude --resume <sid> -p <msg>` detached. The node did not visibly re-flip `active` within
-  my polling window (resume spin-up / brief active window between 3s polls) — **requested server-side
-  confirmation from "main"** that the resume fired for the 4575d616 session specifically.
+- **LIVE NUDGE (cleared `claude-4575d616`) — DELIVERED + SERVER-SIDE CONFIRMED.** Typed the bounded
+  ping, clicked Nudge → provider `chat.send` → proxy → hub `/api/live/nudge` returned 200 (card showed
+  "Nudge delivered — session resumed.", input cleared). **"main" confirmed server-side:** session
+  4575d616's transcript was modified at the exact nudge moment with the incoming prompt + attachment
+  entries appended — the `claude --resume <sid> -p <msg>` genuinely delivered a real prompt into the
+  real session. (The resumed child process exited without writing its reply turn — "main" filed that as
+  a hub/CLI child-reliability item on the HUB backlog, NOT a fork defect; the office's contract —
+  deliver a real prompt into a real session — is proven end-to-end. The node didn't visibly re-flip
+  `active` in my 3s-poll window because the child exited before a poll caught it.)
 - **LIVE DISMISS (cleared `f015ccaa-sub-dismiss-me`) — FULL E2E after a bug fix.** First attempt
   returned **400 "id is required"** from the hub → root-caused live: `postHubDismiss` sent
   `{ session_id }` and the provider passed `node.sessionId`, but the hub hides by live NODE id
@@ -103,7 +106,10 @@ feedback, post-dismiss roster 46→45) + DOM/network/hub-file assertions inline 
 unobtainable — same WebGL-canvas capture limitation as phases 4/5). **End state: prod build with the
 dismiss fix rebuilt + UP on :3100.**
 
-**Next:** await "main"'s server-side nudge confirmation; then Phase 6 gate/close.
+**SLICE ACCEPTED by "main" (2026-07-11)** on the server-side nudge confirmation + full dismiss e2e.
+The latent Phase-1 dismiss-body bug ({session_id} vs {id}), caught on the FIRST live exercise of the
+side-effecting path, is exactly the case for live-verifying side-effecting endpoints. **Next: QA gate
+(fresh cleared targets from "main"), then Phase 7.**
 
 ---
 
@@ -831,7 +837,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
-| 6 — Interactions | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/agentCard |
+| 6 — Interactions | **ACCEPTED** (live-verified: card fields + gating × 3 agent types, nudge server-side-confirmed, dismiss full-e2e; QA gate next) | tests/unit/aihub/agentCard · evidence/phase6 |
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |
 
