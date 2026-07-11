@@ -1858,6 +1858,7 @@ function useAgentTick(
     qaHoldByAgentId,
     qaLabStations,
     githubReviewByAgentId,
+    libraryHoldByAgentId,
     meetingParticipants,
     meetingSeatLocations,
     pickRoamPoint,

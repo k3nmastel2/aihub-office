@@ -88,6 +88,23 @@ describe("servicesStore", () => {
     expect(getServicesSnapshot()).not.toBe(first);
   });
 
+  it("keeps the same reference when services/links are reordered but equivalent", () => {
+    publishServicesSnapshot(
+      snapshot({
+        services: [service({ id: "mlx" }), service({ id: "voice", label: "Voice" })],
+        serviceLinks: [link({ target: "mlx" }), link({ source: "a2", target: "voice" })],
+      }),
+    );
+    const first = getServicesSnapshot();
+    publishServicesSnapshot(
+      snapshot({
+        services: [service({ id: "voice", label: "Voice" }), service({ id: "mlx" })],
+        serviceLinks: [link({ source: "a2", target: "voice" }), link({ target: "mlx" })],
+      }),
+    );
+    expect(getServicesSnapshot()).toBe(first);
+  });
+
   it("clears back to empty on reset", () => {
     publishServicesSnapshot(snapshot());
     resetServicesStore();

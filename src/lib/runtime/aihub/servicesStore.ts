@@ -38,10 +38,13 @@ const serviceSignature = (service: HubLiveService): string =>
 const linkSignature = (link: HubLiveServiceLink): string =>
   `${link.source}|${link.target}|${link.kind}|${link.active ? 1 : 0}|${link.tool ?? ""}`;
 
+// Order-independent: the set of services/links is what matters, not their array order, so a
+// reordered-but-equivalent poll keeps the same signature (and the same stable reference).
 const snapshotSignature = (snapshot: ServicesSnapshot): string =>
-  `S:${snapshot.services.map(serviceSignature).join(",")};L:${snapshot.serviceLinks
-    .map(linkSignature)
-    .join(",")}`;
+  `S:${snapshot.services
+    .map(serviceSignature)
+    .sort()
+    .join(",")};L:${snapshot.serviceLinks.map(linkSignature).sort().join(",")}`;
 
 let currentSignature = snapshotSignature(EMPTY_SNAPSHOT);
 
