@@ -24,6 +24,10 @@ import {
   HUB_SESSION_MAIN_KEY,
   normalizeHubSnapshot,
 } from "@/lib/runtime/aihub/snapshot";
+import {
+  publishServicesSnapshot,
+  resetServicesStore,
+} from "@/lib/runtime/aihub/servicesStore";
 import type { HubLiveNode, HubLiveSnapshot } from "@/lib/runtime/aihub/types";
 import type {
   RuntimeCapability,
@@ -157,6 +161,12 @@ export class AihubRuntimeProvider implements RuntimeProvider, LiveFeedRuntimePro
         const prevSnapshot = this.feedPrevSnapshot;
         this.snapshot = nextSnapshot;
         this.feedPrevSnapshot = nextSnapshot;
+        // Side channel for the services HUD + world-object glows (see servicesStore).
+        publishServicesSnapshot({
+          services: nextSnapshot.services,
+          serviceLinks: nextSnapshot.serviceLinks,
+          generatedAt: nextSnapshot.generatedAt,
+        });
         if (prevSnapshot) {
           const frames = diffSnapshots(prevSnapshot, nextSnapshot, this.seq);
           for (const frame of frames) {
@@ -183,6 +193,8 @@ export class AihubRuntimeProvider implements RuntimeProvider, LiveFeedRuntimePro
       clearInterval(this.feedTimer);
       this.feedTimer = null;
     }
+    // Drop the services slice so a disconnected floor doesn't show stale services.
+    resetServicesStore();
   }
 
   private async ensureSnapshot(): Promise<HubLiveSnapshot> {

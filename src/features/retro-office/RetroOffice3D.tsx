@@ -114,6 +114,12 @@ import {
 } from "@/features/retro-office/objects/aihub/door";
 import { AihubPodRugs } from "@/features/retro-office/objects/aihub/PodRug";
 import { AihubDeskPaperStacks } from "@/features/retro-office/objects/aihub/DeskPaperStack";
+import { AihubServiceGlows } from "@/features/retro-office/objects/aihub/ServiceGlow";
+import {
+  EMPTY_SERVICE_ERRAND_HOLD_MAPS,
+  type ServiceErrandHoldMaps,
+} from "@/lib/aihub/serviceErrands";
+import type { ServicesSnapshot } from "@/lib/runtime/aihub/servicesStore";
 import {
   createWallItem,
   getItemBaseSize,
@@ -142,6 +148,7 @@ import {
   resolveQaLabRoute,
   resolveSmsBoothRoute,
   resolveServerRoomRoute,
+  resolveLibraryRoute,
   ROAM_POINTS,
   SERVER_ROOM_TARGET,
 } from "@/features/retro-office/core/navigation";
@@ -245,7 +252,21 @@ type FeedEvent = {
 const EMPTY_STRING_RECORD: Record<string, string> = {};
 const EMPTY_BOOLEAN_RECORD: Record<string, boolean> = {};
 const EMPTY_NUMBER_RECORD: Record<string, number> = {};
+// OR-merge an aihub service-errand overlay into an existing hold map. Returns the base
+// reference unchanged when the overlay is empty (identity stability for the office render).
+const mergeBooleanHoldMaps = (
+  base: Record<string, boolean>,
+  overlay: Record<string, boolean>,
+): Record<string, boolean> => {
+  const overlayIds = Object.keys(overlay);
+  if (overlayIds.length === 0) return base;
+  const merged: Record<string, boolean> = { ...base };
+  for (const id of overlayIds) if (overlay[id]) merged[id] = true;
+  return merged;
+};
 const EMPTY_MONITOR_MAP: OfficeDeskMonitorMap = {};
+const EMPTY_HUB_SERVICES: ServicesSnapshot["services"] = [];
+const EMPTY_HUB_SERVICE_LINKS: ServicesSnapshot["serviceLinks"] = [];
 const EMPTY_CLEANING_CUES: OfficeCleaningCue[] = [];
 const EMPTY_FEED_EVENTS: FeedEvent[] = [];
 
@@ -879,6 +900,7 @@ function useAgentTick(
   spawnAtDoor = false,
   leavingByAgentId: Record<string, boolean> = {},
   leavingInPlaceByAgentId: Record<string, boolean> = {},
+  libraryHoldByAgentId: Record<string, boolean> = {},
 ) {
   const renderAgentsRef = useRef<RenderAgent[]>([]);
   const renderAgentLookupRef = useRef<Map<string, RenderAgent>>(new Map());
@@ -1038,6 +1060,7 @@ function useAgentTick(
       const explicitPhoneBoothHold = Boolean(phoneBoothHoldByAgentId[agent.id]);
       const explicitQaHold = Boolean(qaHoldByAgentId[agent.id]);
       const explicitGithubHold = Boolean(githubReviewByAgentId[agent.id]);
+      const explicitLibraryHold = Boolean(libraryHoldByAgentId[agent.id]);
       if (
         explicitGymHold &&
         gymWorkoutLocations.length > 0 &&
@@ -1106,6 +1129,7 @@ function useAgentTick(
               explicitPhoneBoothHold ||
               explicitQaHold ||
               explicitGithubHold ||
+              explicitLibraryHold ||
               agent.status === "working" ||
               stickyUntil > now
             ? "working"
@@ -1381,6 +1405,49 @@ function useAgentTick(
               ? "standing"
               : "walking";
           ns.facing = phoneBoothRoute.facing;
+        } else if (explicitLibraryHold) {
+          // aihub library / research errand (Phase 5): open floor, single-stage walk-to.
+          const libraryRoute = resolveLibraryRoute(existing.x, existing.y);
+          ns.pingPongUntil = undefined;
+          ns.pingPongTargetX = undefined;
+          ns.pingPongTargetY = undefined;
+          ns.pingPongFacing = undefined;
+          ns.pingPongPartnerId = undefined;
+          ns.pingPongTableUid = undefined;
+          ns.pingPongSide = undefined;
+          ns.walkSpeed =
+            existing.pingPongPreviousWalkSpeed ?? existing.walkSpeed;
+          ns.pingPongPreviousWalkSpeed = undefined;
+          ns.interactionTarget = "library";
+          ns.smsBoothStage = undefined;
+          ns.phoneBoothStage = undefined;
+          ns.serverRoomStage = undefined;
+          ns.gymStage = undefined;
+          ns.qaLabStage = undefined;
+          ns.qaLabStationType = undefined;
+          ns.workoutStyle = undefined;
+          const targetChanged =
+            existing.targetX !== libraryRoute.targetX ||
+            existing.targetY !== libraryRoute.targetY ||
+            existing.interactionTarget !== "library";
+          ns.targetX = libraryRoute.targetX;
+          ns.targetY = libraryRoute.targetY;
+          if (targetChanged) {
+            ns.path = planPath(
+              existing.x,
+              existing.y,
+              libraryRoute.targetX,
+              libraryRoute.targetY,
+            );
+          }
+          ns.state =
+            Math.hypot(
+              existing.x - libraryRoute.targetX,
+              existing.y - libraryRoute.targetY,
+            ) < 15
+              ? "standing"
+              : "walking";
+          ns.facing = libraryRoute.facing;
         } else if (effectiveStatus === "working" && deskPos) {
           ns.pingPongUntil = undefined;
           ns.pingPongTargetX = undefined;
@@ -2317,6 +2384,8 @@ export function RetroOffice3D({
   textMessageScenario = null,
   qaHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   qaTestingAgentId = null,
+  aihubServiceErrands = EMPTY_SERVICE_ERRAND_HOLD_MAPS,
+  aihubServicesSnapshot = null,
   standupMeeting = null,
   standupAutoOpenBoard = true,
   monitorAgentId = null,
@@ -2435,6 +2504,12 @@ export function RetroOffice3D({
   textMessageScenario?: MockTextMessageScenario | null;
   qaHoldByAgentId?: Record<string, boolean>;
   qaTestingAgentId?: string | null;
+  // aihub service errands (Phase 5): per-target hold maps derived from live service usage.
+  // serverRoom/phoneBooth/qaDevice OR-merge into the matching existing holds; library drives
+  // the new open-floor reading route. Empty for demo/openclaw floors.
+  aihubServiceErrands?: ServiceErrandHoldMaps;
+  // aihub live services slice (Phase 5): drives the world-object health glows. Null off-floor.
+  aihubServicesSnapshot?: ServicesSnapshot | null;
   standupMeeting?: StandupMeeting | null;
   standupAutoOpenBoard?: boolean;
   monitorAgentId?: string | null;
@@ -2555,15 +2630,24 @@ export function RetroOffice3D({
     animationState?.gymHoldByAgentId ?? gymHoldByAgentId;
   const resolvedSmsBoothHoldByAgentId =
     animationState?.smsBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
-  const resolvedPhoneBoothHoldByAgentId =
-    animationState?.phoneBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
-  const resolvedQaHoldByAgentId =
-    animationState?.qaHoldByAgentId ?? qaHoldByAgentId;
-  const resolvedGithubReviewByAgentId =
+  // aihub service errands (Phase 5) OR-merge into the routes they reuse: voice → phone booth,
+  // browser/chrome → QA lab, mlx/ollama → server room (github hold), memory/graph → library.
+  const resolvedPhoneBoothHoldByAgentId = mergeBooleanHoldMaps(
+    animationState?.phoneBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD,
+    aihubServiceErrands.phoneBooth,
+  );
+  const resolvedQaHoldByAgentId = mergeBooleanHoldMaps(
+    animationState?.qaHoldByAgentId ?? qaHoldByAgentId,
+    aihubServiceErrands.qaDevice,
+  );
+  const resolvedGithubReviewByAgentId = mergeBooleanHoldMaps(
     animationState?.githubHoldByAgentId ??
-    (githubReviewAgentId
-      ? { [githubReviewAgentId]: true }
-      : EMPTY_BOOLEAN_RECORD);
+      (githubReviewAgentId
+        ? { [githubReviewAgentId]: true }
+        : EMPTY_BOOLEAN_RECORD),
+    aihubServiceErrands.serverRoom,
+  );
+  const resolvedLibraryHoldByAgentId = aihubServiceErrands.library;
   const resolvedJukeboxHoldByAgentId =
     animationState?.jukeboxHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
   const isJukeboxActive = Object.values(resolvedJukeboxHoldByAgentId).some(
@@ -2931,6 +3015,7 @@ export function RetroOffice3D({
     spawnAtDoor,
     leavingByAgentId,
     leavingInPlaceByAgentId,
+    resolvedLibraryHoldByAgentId,
   );
   useEffect(() => {
     const syncRenderAgentUi = () => {
@@ -5373,6 +5458,13 @@ export function RetroOffice3D({
               deskItems={deskItems}
               deskAssignmentByDeskUid={deskAssignmentByDeskUid}
               agents={agents}
+              visible={layoutPreset === "aihub"}
+            />
+
+            {/* AI Hub service health glows: halo under each live service's mapped object. */}
+            <AihubServiceGlows
+              services={aihubServicesSnapshot?.services ?? EMPTY_HUB_SERVICES}
+              serviceLinks={aihubServicesSnapshot?.serviceLinks ?? EMPTY_HUB_SERVICE_LINKS}
               visible={layoutPreset === "aihub"}
             />
 

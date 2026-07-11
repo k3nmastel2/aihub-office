@@ -5,6 +5,61 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 5 — Services as world objects + errands
 
+### Phase 5 status — IMPLEMENTED (unit+typecheck green; pending live Chrome pass)
+
+Services become WORLD OBJECTS with honest walk-to errands. One vertical slice: a live services
+side-channel store → HUD panel + world-object health glows + agents that physically walk to the
+service they're using and return.
+
+**Done (pure logic in `src/lib/aihub/`, unit-tested; coords/materials in the renderer):**
+- **`src/lib/runtime/aihub/servicesStore.ts` (new):** module-level external store
+  (`useSyncExternalStore`) for the hub's `services` + `service_links`, written by the provider
+  poll loop. Structural-signature equality guard returns a STABLE reference when nothing changed
+  (getSnapshot identity stability — required by useSyncExternalStore + keeps the T12-sensitive
+  office quiet); `ageS` is excluded from the signature (cosmetic, would churn every 3s).
+  `resetServicesStore()` clears on feed stop/disconnect.
+- **Provider hook (`provider.ts`, aihub namespace):** `tick()` publishes the services slice each
+  3s poll; `stopLiveFeed()` resets the store.
+- **`src/lib/aihub/serviceMap.ts` (new, pure):** service id → world object
+  (mlx/ollama→server room, comfyui→art, voice→phone booth, memory/graph/recall→library,
+  browser/chrome→QA device rack, hub→ATM) + tool-name → object fallback rules
+  (ailab_speak/tts→phone booth, image tools→art, chrome→QA, WebFetch/recall→library, generic
+  ailab→server room). `objectKindToErrand` gates art+atm as glow-only (no walk-to route).
+- **`src/lib/aihub/serviceErrands.ts` (new, pure):** `computeServiceErrands` derives per-agent
+  walk-to errands from active `service_links` (authoritative) or `hub.currentTool` (fallback,
+  working agents only), with the honest throttle: a candidate must persist ≥2 polls before the
+  agent relocates (no ping-pong), then a ~20s hold keeps them at the object (extends while the
+  service keeps being used) before releasing. `buildServiceErrandHoldMaps` splits the flat map
+  into the four per-target hold maps.
+- **Errands reuse the existing room plumbing:** serverRoom→github hold (`resolveServerRoomRoute`
+  → server terminal), phoneBooth→phone-booth hold, qaDevice→QA-lab hold. OR-merged into the
+  existing `resolved*` maps in RetroOffice3D (`mergeBooleanHoldMaps`, base ref preserved when the
+  overlay is empty → no idle churn).
+- **Library / research zone (NEW, per Ken's vision):** added `AIHUB_LIBRARY_ITEMS` (bookshelves +
+  reading nook) to the aihub preset (additive, mirrors the east-lounge); a new open-floor
+  single-stage `resolveLibraryRoute` (`LIBRARY_TARGET (560,200)`); a `libraryHoldByAgentId` param
+  + `explicitLibraryHold` branch in `useAgentTick` (`interactionTarget: "library"`). memory/graph/
+  recall services route here.
+- **Health glow (`objects/aihub/ServiceGlow.tsx`, new):** a floor halo ring under each live
+  service's mapped object — green (online) / red (offline), a gentle emissive pulse when in use
+  (active service_link). Rendered like PodRug (least-invasive), gated `layoutPreset==="aihub"`.
+  Only renders for services the hub actually reports (honest, not decorative).
+- **HUD panel (`AihubServicesPanel.tsx`, new):** floating bottom-left card listing services with
+  online/offline dots, the office zone each maps to, and "in use by <agent>" from active
+  service_links. aihub floor only; appears when services are live.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 130/130 (36 new:
+serviceMap 17 + serviceErrands 12 + servicesStore 7) · full `tests/unit/` → only the 5 known
+pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration
+×1), zero new.
+
+**Next:** live Chrome self-verify on a prod build — services visible as glowing objects, HUD
+lists them, ≥1 live errand captured (agent walks to server rack / library / phone booth during
+real tool use). Requires live service_links on the hub (requested from "main"); services/
+service_links are empty until real service usage. Then prod rebuild + left up.
+
+---
+
 **PHASE 4 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → P1 fixed → consolidated prod pass).**
 All four features prod-verified: nameplate chips (real task counts), blocked badge system
 (triangle+dot+tooltip detail; QA verified via the documented tab-only intercept, clean
@@ -604,7 +659,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 2 — Ephemeral lifecycle | implemented; live-verifying | tests/unit/aihub/lifecycle · evidence/phase2 |
 | 3 — Hierarchy pods | **done** (closed 2026-07-11; ghost carry-forward closed; multi-pod in; focus-clustering inert until hub task #16) | tests/unit/aihub/seating · evidence/phase3 |
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
-| 5 — Services + errands | in progress | — |
+| 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
 | 6 — Interactions | pending | — |
 | 7 — Polish / parity | pending | — |
 | 8 — Hub link-out + retire office.js | pending | — |

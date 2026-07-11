@@ -7,6 +7,8 @@ export const OFFICE_INTERACTION_TARGETS = [
   "qa_lab",
   "sms_booth",
   "phone_booth",
+  // aihub library / research zone (Phase 5): open-floor reading errand target.
+  "library",
 ] as const;
 
 export type OfficeInteractionTargetId =

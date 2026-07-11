@@ -223,6 +223,15 @@ import {
   resolveAihubBoardError,
   shouldFetchRemoteGatewayTasks,
 } from "@/lib/aihub/taskCards";
+import {
+  buildServiceErrandHoldMaps,
+  computeServiceErrands,
+  EMPTY_SERVICE_ERRAND_HOLD_MAPS,
+  type ServiceErrandHoldMaps,
+  type ServiceErrandState,
+} from "@/lib/aihub/serviceErrands";
+import { useServicesSnapshot } from "@/lib/runtime/aihub/servicesStore";
+import { AihubServicesPanel } from "@/features/office/components/panels/AihubServicesPanel";
 import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
@@ -4570,6 +4579,58 @@ export function OfficeScreen({
     aihubSeatingRef.current = next;
     return next;
   }, [state.agents, activeAdapterType]);
+  // Phase 5 — live services slice (services + service_links) from the provider poll loop.
+  const aihubServicesSnapshot = useServicesSnapshot();
+  // Phase 5 — honest service errands: when an agent uses a hub service that maps to a
+  // walk-to object, latch a hold so it relocates there. Throttle (≥2 polls) + 20s hold live
+  // in computeServiceErrands; the state ref carries across polls, the holds ref keeps identity
+  // stable when the set is unchanged. Off the aihub floor this is inert (empty maps).
+  const aihubServiceErrandStateRef = useRef<ServiceErrandState>({});
+  const aihubServiceErrandHoldsRef = useRef<ServiceErrandHoldMaps>(
+    EMPTY_SERVICE_ERRAND_HOLD_MAPS,
+  );
+  const aihubServiceErrands = useMemo<ServiceErrandHoldMaps>(() => {
+    if (activeAdapterType !== "aihub") {
+      aihubServiceErrandStateRef.current = {};
+      aihubServiceErrandHoldsRef.current = EMPTY_SERVICE_ERRAND_HOLD_MAPS;
+      return EMPTY_SERVICE_ERRAND_HOLD_MAPS;
+    }
+    const errandAgents = state.agents
+      .filter((agent) => agent.hub)
+      .map((agent) => ({
+        agentId: agent.agentId,
+        currentTool: agent.hub!.currentTool,
+        working:
+          (agent.hub!.hubStatus === "active" ||
+            agent.hub!.hubStatus === "winding") &&
+          agent.hub!.badge !== "blocked",
+      }));
+    const { errandsByAgentId, nextState } = computeServiceErrands({
+      agents: errandAgents,
+      serviceLinks: aihubServicesSnapshot.serviceLinks,
+      previous: aihubServiceErrandStateRef.current,
+      now: Date.now(),
+    });
+    aihubServiceErrandStateRef.current = nextState;
+    const nextHolds = buildServiceErrandHoldMaps(errandsByAgentId);
+    const prevHolds = aihubServiceErrandHoldsRef.current;
+    const unchanged =
+      shallowEqualBooleanRecord(nextHolds.serverRoom, prevHolds.serverRoom) &&
+      shallowEqualBooleanRecord(nextHolds.phoneBooth, prevHolds.phoneBooth) &&
+      shallowEqualBooleanRecord(nextHolds.library, prevHolds.library) &&
+      shallowEqualBooleanRecord(nextHolds.qaDevice, prevHolds.qaDevice);
+    if (unchanged) return prevHolds;
+    aihubServiceErrandHoldsRef.current = nextHolds;
+    return nextHolds;
+  }, [state.agents, aihubServicesSnapshot, activeAdapterType]);
+  // Agent id → display name, for the services HUD "in use by <name>" line.
+  const aihubAgentNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const agent of state.agents) {
+      map[agent.agentId] = agent.name || agent.agentId;
+    }
+    return map;
+  }, [state.agents]);
   // Phase 4 — immersive Kanban feed: on the aihub floor, source the task board from the
   // roster's live hub `tasks.items` (pending→todo, in_progress→in_progress, completed→done)
   // so clicking the Kanban shows agents' REAL /tasks lists. This is a read-only source-switch:
@@ -4984,6 +5045,10 @@ export function OfficeScreen({
               ? aihubSeatingByDeskUid
               : deskAssignmentByDeskUid
           }
+          aihubServiceErrands={aihubServiceErrands}
+          aihubServicesSnapshot={
+            activeAdapterType === "aihub" ? aihubServicesSnapshot : null
+          }
           githubReviewAgentId={githubReviewAgentId}
           qaTestingAgentId={qaTestingAgentId}
           phoneBoothAgentId={activePhoneBoothAgentId}
@@ -5128,6 +5193,13 @@ export function OfficeScreen({
             void taskBoard.refreshCronJobs().catch(() => {});
           }}
         />
+        {activeAdapterType === "aihub" ? (
+          <AihubServicesPanel
+            services={aihubServicesSnapshot.services}
+            serviceLinks={aihubServicesSnapshot.serviceLinks}
+            agentNameById={aihubAgentNameById}
+          />
+        ) : null}
         {jukeboxOpen ? (
           soundclawReady ? (
             <JukeboxPanel

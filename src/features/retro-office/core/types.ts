@@ -131,6 +131,15 @@ export type GymRoute = {
   facing: number;
 };
 
+// aihub library/research zone (Phase 5). Open floor (no walled door), so a single stage:
+// walk straight to the reading spot in front of the bookshelves.
+export type LibraryRoute = {
+  stage: "reading";
+  targetX: number;
+  targetY: number;
+  facing: number;
+};
+
 export type PhoneBoothRoute = {
   stage: "door_outer" | "door_inner" | "receiver";
   targetX: number;

@@ -601,6 +601,21 @@ const AIHUB_LOUNGE_ITEMS: FurnitureSeed[] = [
   { type: "plant", x: 1740, y: 660 },
 ];
 
+// Library / research zone (Phase 5): an open-floor reading corner in the top-middle bullpen
+// (x≈460-660, y≈45-230) — clear of the pods (y≥290), the art room (x≤438) and the kitchen
+// (x≥840). Agents doing memory / recall / research work walk here via resolveLibraryRoute
+// (reading spot LIBRARY_TARGET = (560,200)). Bookshelves are the health-glow anchor for the
+// memory/graph/recall services.
+const AIHUB_LIBRARY_ITEMS: FurnitureSeed[] = [
+  { type: "bookshelf", x: 500, y: 55, w: 80, h: 36, facing: 180 },
+  { type: "bookshelf", x: 590, y: 55, w: 80, h: 36, facing: 180 },
+  { type: "table_rect", x: 545, y: 150, w: 60, h: 28, facing: 0 },
+  { type: "chair", x: 545, y: 128, facing: 0 },
+  { type: "beanbag", x: 632, y: 188, color: "#0f766e", facing: 225 },
+  { type: "plant", x: 470, y: 60 },
+  { type: "plant", x: 660, y: 205 },
+];
+
 const AIHUB_DECOR_ITEMS: FurnitureSeed[] = [
   DEFAULT_ATM_MACHINE, // (430,210) — satisfies ensureOfficeAtm
   DEFAULT_PHONE_BOOTH, // (1050,190) — satisfies ensureOfficePhoneBooth
@@ -628,6 +643,7 @@ const AIHUB_STATIC_ITEMS: FurnitureSeed[] = [
   ...AIHUB_KITCHEN_ITEMS,
   ...AIHUB_DINING_ITEMS,
   ...AIHUB_LOUNGE_ITEMS,
+  ...AIHUB_LIBRARY_ITEMS,
   ...AIHUB_DECOR_ITEMS,
 ];
 

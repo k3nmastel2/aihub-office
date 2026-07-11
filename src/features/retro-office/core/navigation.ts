@@ -32,6 +32,10 @@ export {
   resolveServerRoomRoute,
   SERVER_ROOM_TARGET,
 } from "@/features/retro-office/core/navigation/serverRoomRoute";
+export {
+  resolveLibraryRoute,
+  LIBRARY_TARGET,
+} from "@/features/retro-office/core/navigation/libraryRoute";
 
 export const resolvePingPongTargets = (
   item: FurnitureItem,
