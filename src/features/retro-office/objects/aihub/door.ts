@@ -19,4 +19,6 @@ export const AIHUB_DOOR_EXIT: FacingPoint = {
 };
 
 // Opacity ramp duration for a leaving agent's fade-out (renderer-side, per-frame).
-export const AIHUB_LEAVING_FADE_MS = 1_500;
+// Comfortably longer than the ~3s live poll cadence's worst-case latency so the
+// walk-to-door + dissolve stays visible for at least one full observed frame.
+export const AIHUB_LEAVING_FADE_MS = 3_000;

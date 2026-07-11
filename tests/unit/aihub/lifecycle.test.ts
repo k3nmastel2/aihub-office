@@ -30,6 +30,7 @@ describe("resolveLeavingPlan", () => {
         agent("d", null),
       ],
       firstSeenByAgentId: { a: 0, b: 0, c: 0, d: 0 },
+      doneSinceByAgentId: {},
       now: NOW,
     });
     expect(plan.walkOutByAgentId).toEqual({});
@@ -40,6 +41,7 @@ describe("resolveLeavingPlan", () => {
     const plan = resolveLeavingPlan({
       agents: [agent("a", "done")],
       firstSeenByAgentId: { a: NOW - 60_000 },
+      doneSinceByAgentId: { a: NOW - 1_000 },
       now: NOW,
     });
     expect(plan.walkOutByAgentId).toEqual({ a: true });
@@ -50,6 +52,7 @@ describe("resolveLeavingPlan", () => {
     const plan = resolveLeavingPlan({
       agents: [agent("flash", "done")],
       firstSeenByAgentId: { flash: NOW - 2_000 },
+      doneSinceByAgentId: { flash: NOW },
       now: NOW,
     });
     expect(plan.fadeInPlaceByAgentId).toEqual({ flash: true });
@@ -60,6 +63,7 @@ describe("resolveLeavingPlan", () => {
     const plan = resolveLeavingPlan({
       agents: [agent("edge", "done")],
       firstSeenByAgentId: { edge: NOW - DEFAULT_FLASH_LIFETIME_MS },
+      doneSinceByAgentId: { edge: NOW },
       now: NOW,
     });
     expect(plan.walkOutByAgentId).toEqual({ edge: true });
@@ -69,44 +73,75 @@ describe("resolveLeavingPlan", () => {
     const plan = resolveLeavingPlan({
       agents: [agent("ghost", "done")],
       firstSeenByAgentId: {},
+      doneSinceByAgentId: {},
       now: NOW,
     });
     expect(plan.fadeInPlaceByAgentId).toEqual({ ghost: true });
     expect(plan.walkOutByAgentId).toEqual({});
   });
 
-  it("caps simultaneous walk-outs and queues the rest (oldest-arrived win slots)", () => {
-    const agents = ["a", "b", "c", "d", "e", "f"].map((id) => agent(id, "done"));
-    // firstSeen ascending by letter so ordering is unambiguous; all past the flash window.
-    const firstSeenByAgentId = {
-      a: NOW - 60_000,
-      b: NOW - 50_000,
-      c: NOW - 40_000,
-      d: NOW - 30_000,
-      e: NOW - 20_000,
-      f: NOW - 10_000,
-    };
-    const plan = resolveLeavingPlan({ agents, firstSeenByAgentId, now: NOW });
-    expect(Object.keys(plan.walkOutByAgentId).sort()).toEqual(["a", "b", "c", "d"]);
+  // Regression guard for the ghost-avatar bug (T15): a done agent over the walk cap
+  // must STILL fade (in place) — never be left out of both maps, which would leave it
+  // fully visible forever because the renderer only latches `leavingSince` for mapped agents.
+  it("maps EVERY done agent to exactly one map (no unmapped ghosts over the cap)", () => {
+    const ids = ["a", "b", "c", "d", "e", "f", "g"]; // 7 done, cap is 4
+    const agents = ids.map((id) => agent(id, "done"));
+    const firstSeenByAgentId = Object.fromEntries(ids.map((id) => [id, NOW - 60_000]));
+    const doneSinceByAgentId = Object.fromEntries(ids.map((id) => [id, NOW - 1_000]));
+    const plan = resolveLeavingPlan({
+      agents,
+      firstSeenByAgentId,
+      doneSinceByAgentId,
+      now: NOW,
+    });
+    for (const id of ids) {
+      const walking = Boolean(plan.walkOutByAgentId[id]);
+      const fading = Boolean(plan.fadeInPlaceByAgentId[id]);
+      expect(walking || fading).toBe(true); // never a ghost
+      expect(walking && fading).toBe(false); // exactly one
+    }
     expect(Object.keys(plan.walkOutByAgentId)).toHaveLength(
       DEFAULT_MAX_SIMULTANEOUS_WALK_OUTS,
     );
-    // e and f are queued — in neither map.
-    expect(plan.walkOutByAgentId.e).toBeUndefined();
-    expect(plan.fadeInPlaceByAgentId.e).toBeUndefined();
+    expect(Object.keys(plan.fadeInPlaceByAgentId)).toHaveLength(
+      ids.length - DEFAULT_MAX_SIMULTANEOUS_WALK_OUTS,
+    );
   });
 
-  it("keeps slot assignment stable when a newer agent also goes done", () => {
-    const base = {
-      agents: [agent("old", "done"), agent("mid", "done"), agent("new", "done")],
-      firstSeenByAgentId: { old: NOW - 60_000, mid: NOW - 40_000, new: NOW - 20_000 },
-      now: NOW,
-      maxSimultaneousWalkOuts: 2,
+  it("caps simultaneous walk-outs; the rest fade in place (never queued into limbo)", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const agents = ids.map((id) => agent(id, "done"));
+    const firstSeenByAgentId = Object.fromEntries(ids.map((id) => [id, NOW - 60_000]));
+    // doneSince ascending a→f, so f is the FRESHEST-done.
+    const doneSinceByAgentId = {
+      a: NOW - 6_000,
+      b: NOW - 5_000,
+      c: NOW - 4_000,
+      d: NOW - 3_000,
+      e: NOW - 2_000,
+      f: NOW - 1_000,
     };
-    const plan = resolveLeavingPlan(base);
-    // Oldest two hold the slots; the newest is queued.
-    expect(plan.walkOutByAgentId).toEqual({ old: true, mid: true });
-    expect(plan.walkOutByAgentId.new).toBeUndefined();
+    const plan = resolveLeavingPlan({
+      agents,
+      firstSeenByAgentId,
+      doneSinceByAgentId,
+      now: NOW,
+    });
+    // Freshest-done four walk; a and b (oldest done, already faded) fade in place.
+    expect(Object.keys(plan.walkOutByAgentId).sort()).toEqual(["c", "d", "e", "f"]);
+    expect(Object.keys(plan.fadeInPlaceByAgentId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("gives the walk slot to the freshest-done agent, not the longest-done", () => {
+    const plan = resolveLeavingPlan({
+      agents: [agent("stale", "done"), agent("fresh", "done")],
+      firstSeenByAgentId: { stale: NOW - 60_000, fresh: NOW - 60_000 },
+      doneSinceByAgentId: { stale: NOW - 300_000, fresh: NOW - 500 },
+      now: NOW,
+      maxSimultaneousWalkOuts: 1,
+    });
+    expect(plan.walkOutByAgentId).toEqual({ fresh: true });
+    expect(plan.fadeInPlaceByAgentId).toEqual({ stale: true });
   });
 
   it("respects an explicit maxSimultaneousWalkOuts override", () => {
@@ -114,10 +149,13 @@ describe("resolveLeavingPlan", () => {
     const plan = resolveLeavingPlan({
       agents,
       firstSeenByAgentId: { a: 0, b: 0, c: 0 },
+      doneSinceByAgentId: { a: NOW, b: NOW, c: NOW },
       now: NOW,
       maxSimultaneousWalkOuts: 1,
     });
     expect(Object.keys(plan.walkOutByAgentId)).toHaveLength(1);
+    // The other two still fade (in place) — no ghosts.
+    expect(Object.keys(plan.fadeInPlaceByAgentId)).toHaveLength(2);
   });
 });
 

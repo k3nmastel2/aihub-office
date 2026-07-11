@@ -4410,18 +4410,30 @@ export function OfficeScreen({
   // quiet when the leaving set is unchanged (T12 discipline). Non-aihub agents carry
   // no `hub`, so both maps stay empty on demo/openclaw floors.
   const firstSeenByAgentIdRef = useRef<Record<string, number>>({});
+  const doneSinceByAgentIdRef = useRef<Record<string, number>>({});
   const leavingWalkOutRef = useRef<Record<string, boolean>>(EMPTY_BOOLEAN_RECORD);
   const leavingInPlaceRef = useRef<Record<string, boolean>>(EMPTY_BOOLEAN_RECORD);
   const { leavingByAgentId, leavingInPlaceByAgentId } = useMemo(() => {
     const now = Date.now();
     const firstSeen = firstSeenByAgentIdRef.current;
+    const doneSince = doneSinceByAgentIdRef.current;
     const present = new Set<string>();
     for (const agent of state.agents) {
       present.add(agent.agentId);
       if (firstSeen[agent.agentId] === undefined) firstSeen[agent.agentId] = now;
+      // Track when each agent was first observed done so the freshest leavers win the
+      // walk-out slots; reset the moment it is no longer done (e.g. a resumed session).
+      if (agent.hub?.hubStatus === "done") {
+        if (doneSince[agent.agentId] === undefined) doneSince[agent.agentId] = now;
+      } else {
+        delete doneSince[agent.agentId];
+      }
     }
     for (const id of Object.keys(firstSeen)) {
       if (!present.has(id)) delete firstSeen[id];
+    }
+    for (const id of Object.keys(doneSince)) {
+      if (!present.has(id)) delete doneSince[id];
     }
     const plan = resolveLeavingPlan({
       agents: state.agents.map((agent) => ({
@@ -4429,6 +4441,7 @@ export function OfficeScreen({
         hubStatus: agent.hub?.hubStatus ?? null,
       })),
       firstSeenByAgentId: firstSeen,
+      doneSinceByAgentId: doneSince,
       now,
     });
     if (

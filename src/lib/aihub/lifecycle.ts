@@ -34,6 +34,10 @@ export type ResolveLeavingPlanInput = {
   // Client-side first-seen timestamp per agentId. The hub payload carries no spawn
   // time, so the renderer/host tracks when each agent first appeared in the roster.
   firstSeenByAgentId: Record<string, number>;
+  // Client-side timestamp of when each agent was first observed as `done`. Used to
+  // give the walk-out animation to the *freshest* leavers (still mid-fade) rather
+  // than long-done nodes the hub retains but that already faded to invisible.
+  doneSinceByAgentId: Record<string, number>;
   now: number;
   maxSimultaneousWalkOuts?: number;
   flashLifetimeMs?: number;
@@ -42,9 +46,14 @@ export type ResolveLeavingPlanInput = {
 export const DEFAULT_MAX_SIMULTANEOUS_WALK_OUTS = 4;
 export const DEFAULT_FLASH_LIFETIME_MS = 5_000;
 
+// INVARIANT: every `done` agent lands in exactly one of the two maps, so it always
+// fades. The cap limits how many *walk* to the door at once; the rest fade in place.
+// (Regression guard for the ghost bug: an over-cap done node in NEITHER map never
+// gets `leavingSince` set in the renderer and stays fully visible forever.)
 export const resolveLeavingPlan = ({
   agents,
   firstSeenByAgentId,
+  doneSinceByAgentId,
   now,
   maxSimultaneousWalkOuts = DEFAULT_MAX_SIMULTANEOUS_WALK_OUTS,
   flashLifetimeMs = DEFAULT_FLASH_LIFETIME_MS,
@@ -52,30 +61,36 @@ export const resolveLeavingPlan = ({
   const walkOutByAgentId: Record<string, boolean> = {};
   const fadeInPlaceByAgentId: Record<string, boolean> = {};
 
-  const walkCandidates: { agentId: string; firstSeen: number }[] = [];
+  const walkCandidates: { agentId: string; doneSince: number }[] = [];
   for (const agent of agents) {
     if (agent.hubStatus !== "done") continue;
-    const firstSeen = firstSeenByAgentId[agent.agentId] ?? now;
-    const lifetime = now - firstSeen;
+    const lifetime = now - (firstSeenByAgentId[agent.agentId] ?? now);
     if (lifetime < flashLifetimeMs) {
+      // Flash agent — it barely existed; fade where it stands, no walk.
       fadeInPlaceByAgentId[agent.agentId] = true;
     } else {
-      walkCandidates.push({ agentId: agent.agentId, firstSeen });
+      walkCandidates.push({
+        agentId: agent.agentId,
+        doneSince: doneSinceByAgentId[agent.agentId] ?? now,
+      });
     }
   }
 
-  // Oldest-arrived leave first. Stable ordering keeps an in-progress walk-out from
-  // being yanked out of its slot as newer agents finish, and makes the cap deterministic.
+  // Freshest-done first: the agents currently mid-fade get the walk animation, while
+  // long-done nodes (already faded to invisible) yield their slots. This keeps the cap
+  // from being permanently starved by legacy done nodes the hub retains for minutes.
   walkCandidates.sort(
-    (a, b) => a.firstSeen - b.firstSeen || (a.agentId < b.agentId ? -1 : 1),
+    (a, b) => b.doneSince - a.doneSince || (a.agentId < b.agentId ? -1 : 1),
   );
 
-  const grantCount = Math.min(walkCandidates.length, maxSimultaneousWalkOuts);
-  for (let i = 0; i < grantCount; i += 1) {
-    walkOutByAgentId[walkCandidates[i]!.agentId] = true;
-  }
-  // Candidates beyond the cap are queued: they appear in neither map and stay seated
-  // until a slot frees or the hub drops them from the roster.
+  walkCandidates.forEach((candidate, index) => {
+    if (index < maxSimultaneousWalkOuts) {
+      walkOutByAgentId[candidate.agentId] = true;
+    } else {
+      // Over the walk cap → still leaving, just fade in place (NEVER left unmapped).
+      fadeInPlaceByAgentId[candidate.agentId] = true;
+    }
+  });
 
   return { walkOutByAgentId, fadeInPlaceByAgentId };
 };
