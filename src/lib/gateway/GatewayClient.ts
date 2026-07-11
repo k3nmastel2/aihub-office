@@ -738,8 +738,12 @@ export const useGatewayConnection = (
 
   const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_UPSTREAM_GATEWAY_URL);
   const [token, setToken] = useState("");
+  // Initial adapter before persisted settings load. aihub is the home backend (the demo
+  // floor is retired), so first paint reads "AIHUB" instead of a misleading "OPENCLAW"
+  // transient (T20). Auto-connect stays gated on settingsLoaded, so this changes display
+  // only — the persisted adapter still wins once settings load.
   const [selectedAdapterType, setSelectedAdapterTypeState] =
-    useState<StudioGatewayAdapterType>("openclaw");
+    useState<StudioGatewayAdapterType>("aihub");
   const [adapterProfiles, setAdapterProfiles] = useState<
     Partial<Record<StudioGatewayAdapterType, { url: string; token: string }>>
   >({});

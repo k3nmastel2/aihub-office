@@ -311,12 +311,31 @@ phase4-badges) — likely a fresh-build boot-order/state race or a settings-load
 **Gates:** typecheck green · `officeFloors` 8/8 · `studioSettings` 24/24 · full `tests/unit/` only
 the 5 known pre-existing failures, zero new. FORK.md rows added.
 
-**HELD for the capture (main-directed, don't build on an unconfirmed mechanism):** candidate fix #1
-— an aihub-scoped self-correction (when floor=aihub-live but the adapter isn't aihub/connected,
-re-drive the connect, replacing the removed lobby-auto-navigate safety net). Lives in
-`OfficeScreen.tsx` (the phase4-badges collision file) — main will confirm the handoff once its
-fast-follow releases the window. **T20 stays OPEN** until the capture confirms the root and the
-fix is Chrome-verified on a fresh cold-boot cycle.
+**Capture (phase4-badges, prod build) confirmed the mechanism + refined severity:** on a CLEAN
+single-server build the cold boot is NOT permanently stranded — it self-corrects to aihub-live
+(10-25s, occasionally slower), passing through a transient "OPENCLAW • DISCONNECTED / CURRENT FLOOR
+Lobby / DEMO" first. (The earlier "stuck forever on Lobby" reports were multi-server `.next`
+corruption — discounted.) Mapped to code: the "OPENCLAW" first-paint chip = GatewayClient's initial
+`selectedAdapterType` useState default before settings load; the "Lobby" panel = the FloorNav
+fallback (fixed above). The console `[gateway-client]` sequence is dev-only (prod bundle emits none).
+
+**Third fix — default-adapter (team-lead approved):** GatewayClient initial `selectedAdapterType`
+`"openclaw"→"aihub"` so first paint reads "AIHUB" (aihub is home). Display-only — auto-connect stays
+gated on `settingsLoaded`, persisted adapter still wins. No cheap unit seam for a pre-settings-load
+useState transient; verified by the Chrome cold-boot check.
+
+**Candidate fix #1 — DROPPED (team-lead agreed):** the aihub-scoped self-correction is redundant.
+Evidence: the capture proves the boot self-corrects to aihub on its own, and the FloorNav fix removes
+the misleading Lobby display during the transient — nothing is left for a self-correction to fix.
+Held-then-dropped with evidence; no OfficeScreen touch.
+
+**Slow convergence → routed as T21 (task #19, P2):** the 10-35s time-to-CONNECTED is aihub connect/
+feed timing (provider.ts / useRuntimeConnection — phase1-provider's domain, off-limits to me), NOT
+caused by this work; scheduled after Phase 4.
+
+**T20 closes on three fixes** — FloorNav display + settings retired-adapter hardening + default-adapter
+— pending the final Chrome cold-boot verification (CURRENT FLOOR shows "AI Hub Live" throughout,
+header "AIHUB" from first paint, converges CONNECTED). T21 is the routed remainder.
 
 ---
 
