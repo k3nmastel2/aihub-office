@@ -5,6 +5,25 @@ _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fo
 
 ## Current phase: 8 — Hub link-out + soak (FINAL)
 
+### Phase 8 status (2026-07-11)
+- **Hub link-out LANDED**: `~/.ai-hub/server/static/js/live.js` now renders a "🏙 3D office"
+  button beside the tree/office toggle → `window.open("http://localhost:3100/office",
+  "aihub-office")` — the NAMED window target reuses one tab across clicks (Ken's tab rule baked
+  in). Static file: a hub-page reload picks it up, no hub restart needed.
+- **LaunchAgent PREPARED, load pending Ken**: `~/Library/LaunchAgents/com.k3n.aihub-office.plist`
+  (node server/index.js, PORT=3100, NODE_ENV=production, KeepAlive, logs →
+  ~/.ai-hub/logs/aihub-office.log). The permission classifier blocked `launchctl bootstrap`
+  (system-config change) — Ken loads it when ready:
+  `lsof -iTCP:3100 -sTCP:LISTEN` → kill the hand-run PID, then
+  `launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.k3n.aihub-office.plist`.
+  Until then the hand-run prod instance serves :3100.
+- **SOAK**: begins with Ken's daily driving. office.js retirement decision after 1-2 weeks of
+  soak per the plan (SVG tree stays regardless).
+- Remaining Ken decisions: LaunchAgent load (above) · hub restart to activate subagent
+  session_id + huddles/clustering (`launchctl kickstart -k gui/501/com.k3n.ai-hub` after
+  reviewing `cd ~/.ai-hub && git diff server/app.py`) · GitHub push destination (private mirror /
+  sanitize public / local-only).
+
 **PHASE 7 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → P1 fixed → closed).** The sim landed:
 16-archetype role wardrobes + per-tool accents (source+live verified) · honest idle rotation
 (ping-pong pairing live-proven walk-to-table; rally retry-driver landed, QA re-confirm rides the
