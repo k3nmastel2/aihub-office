@@ -90,8 +90,13 @@ import {
   ensureOfficeServerRoom,
   isRetiredPingPongLamp,
   materializeDefaults,
+  AIHUB_POD_LAYOUTS,
   type OfficeLayoutPreset,
 } from "@/features/retro-office/core/furnitureDefaults";
+import {
+  buildAihubNamedZonePresets,
+  buildAihubZonePreset,
+} from "@/lib/aihub/cameraZones";
 import {
   clampPointToZone,
   DISTRICT_CAMERA_POSITION,
@@ -2395,6 +2400,7 @@ export function RetroOffice3D({
   aihubIdleGymHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   aihubPingPongPair = null,
   aihubCollaborationBubbleByAgentId = EMPTY_STRING_RECORD,
+  aihubSessionRootByAgentId = EMPTY_STRING_RECORD,
   aihubServicesSnapshot = null,
   standupMeeting = null,
   standupAutoOpenBoard = true,
@@ -2526,6 +2532,9 @@ export function RetroOffice3D({
   // aihub collaboration bubbles (Phase 7c): agentId → bubble text for agents actively messaging
   // a teammate (SendMessage). Drives an honest speech bubble; empty off the aihub floor.
   aihubCollaborationBubbleByAgentId?: Record<string, string>;
+  // aihub session-root map (Phase 7d): subagent id → its session lead, so a multi-pod session
+  // tints all its rugs with the lead's color. Empty off-floor.
+  aihubSessionRootByAgentId?: Record<string, string>;
   // aihub live services slice (Phase 5): drives the world-object health glows. Null off-floor.
   aihubServicesSnapshot?: ServicesSnapshot | null;
   standupMeeting?: StandupMeeting | null;
@@ -3031,6 +3040,18 @@ export function RetroOffice3D({
       return next;
     });
   }, [aihubPingPongPair, layoutPreset]);
+
+  // Phase 7d (T24): per-zone camera-jump presets for the aihub floor — the four named work
+  // zones plus the six session pods (centers from the live pod layout). Static, computed once.
+  const aihubZonePresets = useMemo(() => {
+    const named = buildAihubNamedZonePresets();
+    const pods = AIHUB_POD_LAYOUTS.map((pod) => ({
+      id: `pod${pod.podIndex + 1}`,
+      label: `Pod ${pod.podIndex + 1}`,
+      preset: buildAihubZonePreset(pod.center.x, pod.center.y, 104),
+    }));
+    return [...named, ...pods];
+  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -5536,6 +5557,7 @@ export function RetroOffice3D({
             <AihubPodRugs
               agents={agents}
               deskAssignmentByDeskUid={deskAssignmentByDeskUid}
+              sessionRootByAgentId={aihubSessionRootByAgentId}
               visible={layoutPreset === "aihub"}
             />
 
@@ -6162,6 +6184,23 @@ export function RetroOffice3D({
               </button>
             ))}
           </div>
+          {/* Phase 7d (T24): aihub per-zone jumps (named work zones + session pods). */}
+          {layoutPreset === "aihub" ? (
+            <div className="flex max-w-[220px] flex-wrap items-center gap-1">
+              {aihubZonePresets.map(({ id, label, preset }) => (
+                <button
+                  key={id}
+                  title={label}
+                  onClick={() => {
+                    cameraPresetRef.current = preset;
+                  }}
+                  className="rounded-md border border-amber-900/20 bg-[#1c1610]/80 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.08em] text-amber-500/60 backdrop-blur-sm transition-colors hover:bg-[#2a1e14] hover:text-amber-400"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {standupMeeting ? (
             <button
               type="button"

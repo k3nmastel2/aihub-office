@@ -206,6 +206,7 @@ import {
   buildSessionGroups,
   resolveLeavingPlan,
   resolveSessionLeaveCues,
+  resolveSessionRootByAgentId,
   shallowEqualBooleanRecord,
   type SessionGroupSnapshot,
 } from "@/lib/aihub/lifecycle";
@@ -4742,6 +4743,30 @@ export function OfficeScreen({
     leavingByAgentId,
     leavingInPlaceByAgentId,
   ]);
+  // Phase 7d — PodRug uniform tint: map every subagent to its session root so a session that
+  // spans multiple pods (e.g. a large subagent tree) tints all its rugs with the LEAD's color
+  // instead of a different color per pod anchor. Only non-root agents get an entry; ref-stable.
+  const aihubSessionRootRef = useRef<Record<string, string>>(EMPTY_STRING_RECORD);
+  const aihubSessionRootByAgentId = useMemo(() => {
+    if (activeAdapterType !== "aihub") {
+      aihubSessionRootRef.current = EMPTY_STRING_RECORD;
+      return EMPTY_STRING_RECORD;
+    }
+    const roots = resolveSessionRootByAgentId(
+      state.agents
+        .filter((agent) => agent.hub)
+        .map((agent) => ({
+          agentId: agent.agentId,
+          name: agent.name,
+          parentAgentId: agent.hub!.parentAgentId,
+        })),
+    );
+    const next: Record<string, string> = {};
+    for (const [id, root] of roots) if (root !== id) next[id] = root;
+    return shallowEqualStringRecord(next, aihubSessionRootRef.current)
+      ? aihubSessionRootRef.current
+      : (aihubSessionRootRef.current = next);
+  }, [state.agents, activeAdapterType]);
   // Phase 7c — collaboration bubbles: a speech bubble over any agent currently messaging a
   // teammate (SendMessage tool), replacing the old random bump-chatter with honest
   // agent-to-agent collaboration. Off the aihub floor this is empty.
@@ -5180,6 +5205,7 @@ export function OfficeScreen({
           aihubIdleGymHoldByAgentId={aihubIdleBehaviors.gymHold}
           aihubPingPongPair={aihubIdleBehaviors.pingPongPair}
           aihubCollaborationBubbleByAgentId={aihubCollaborationBubbleByAgentId}
+          aihubSessionRootByAgentId={aihubSessionRootByAgentId}
           aihubServicesSnapshot={
             activeAdapterType === "aihub" ? aihubServicesSnapshot : null
           }

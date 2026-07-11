@@ -117,6 +117,31 @@ pre-existing failures, zero new.
 **Next 7c step:** live pass — two teammates SendMessage-ing → "💬 → name" bubbles over the
 senders; confirm no random bubbles from passing avatars.
 
+### Phase 7d — DECLUTTER + CAMERA (T24 closed; nameplate LOD; PodRug uniform tint; T23 look pending live) — IMPLEMENTED (unit+typecheck green)
+
+**Done:**
+- **Per-zone camera presets (closes T24):** `src/lib/aihub/cameraZones.ts` (pure, tested) derives a
+  `{pos,target,zoom}` from each zone's canvas anchor via `toWorld` (same transform as the ping-pong
+  jump). RetroOffice3D adds an aihub-gated button row (below Overview/Front-desk/Lounge): Server
+  Room · Library · QA Lab · Kitchen + Pods 1-6 (pod centers from `AIHUB_POD_LAYOUTS`). Each sets
+  `cameraPresetRef.current`.
+- **Nameplate LOD declutter:** `src/lib/aihub/nameplateLod.ts` (pure, tested) → `resolveNameplateLod`
+  fades/hides a nameplate by camera distance (full ≤16, linear fade to 30, hidden beyond). agents.tsx
+  `useFrame` reads `state.camera`, computes the distance to the agent, and drives the nameplate
+  Billboard's visibility + background opacity — so dense pods stay readable and the overview isn't a
+  wall of text. NOTE: near/far are generous starting values (so normal zoomed inspection never loses
+  plates); to be confirmed/tuned against the live camera in the pass.
+- **PodRug uniform tint for multi-pod sessions:** OfficeScreen computes a ref-stable
+  `aihubSessionRootByAgentId` (`resolveSessionRootByAgentId` over `hub.parentAgentId`); PodRug tints a
+  pod anchored by a subagent with its session LEAD's color, so a session spanning several pods reads
+  as one colored team (previously each pod tinted by its own anchor).
+
+**Deferred to the live pass:** T23 (paper-stack occlusion in dense pods) — needs the live Chrome
+debug-toggle + screenshot; folded into the combined 7a-7d self-verify.
+
+**Gates:** `npm run typecheck` green · `npx vitest run tests/unit/aihub/` → 210/210 (12 new: cameraZones
+6 + nameplateLod 6) · full `tests/unit/` → only the 5 known pre-existing failures, zero new.
+
 ---
 
 **PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all

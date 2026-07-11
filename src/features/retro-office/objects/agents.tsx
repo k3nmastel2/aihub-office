@@ -9,6 +9,7 @@ import {
 } from "@/features/retro-office/core/constants";
 import { toWorld } from "@/features/retro-office/core/geometry";
 import { AIHUB_LEAVING_FADE_MS } from "@/features/retro-office/objects/aihub/door";
+import { resolveNameplateLod } from "@/lib/aihub/nameplateLod";
 import type {
   JanitorActor,
   RenderAgent,
@@ -72,6 +73,8 @@ export const AgentModel = memo(function AgentModel({
 }: AgentModelProps) {
   const blocked = badge === "blocked";
   const groupRef = useRef<THREE.Group>(null);
+  const nameplateGroupRef = useRef<THREE.Group>(null);
+  const nameplateBgMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const blockedBadgeRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
   const rightArmRef = useRef<THREE.Group>(null);
@@ -105,7 +108,7 @@ export const AgentModel = memo(function AgentModel({
     [agentId, appearance],
   );
 
-  useFrame(() => {
+  useFrame((state) => {
     const agent =
       agentLookupRef?.current?.get(agentId) ??
       agentsRef.current?.find((candidate) => candidate.id === agentId);
@@ -114,6 +117,18 @@ export const AgentModel = memo(function AgentModel({
     const [wx, , wz] = toWorld(agent.x, agent.y);
     pos.current.set(wx, 0, wz);
     groupRef.current.position.lerp(pos.current, 0.15);
+
+    // Phase 7d: nameplate LOD — fade/hide plates by camera distance so dense pods stay readable
+    // and the overview isn't a wall of text.
+    if (nameplateGroupRef.current) {
+      const lod = resolveNameplateLod(
+        state.camera.position.distanceTo(groupRef.current.position),
+      );
+      nameplateGroupRef.current.visible = lod.visible;
+      if (nameplateBgMatRef.current) {
+        nameplateBgMatRef.current.opacity = 0.9 * lod.opacity;
+      }
+    }
 
     const targetY = agent.facing;
     let rotDelta = targetY - groupRef.current.rotation.y;
@@ -1156,10 +1171,15 @@ export const AgentModel = memo(function AgentModel({
         />
       </mesh>
       {!activeSpeechBubble && nameplateText ? (
-        <Billboard position={[0, 1.05, 0]}>
+        <Billboard ref={nameplateGroupRef} position={[0, 1.05, 0]}>
           <mesh position={[0, 0, -0.001]}>
             <planeGeometry args={[0.82, subtitleText ? 0.34 : 0.24]} />
-            <meshBasicMaterial color="#080c14" transparent opacity={0.9} />
+            <meshBasicMaterial
+              ref={nameplateBgMatRef}
+              color="#080c14"
+              transparent
+              opacity={0.9}
+            />
           </mesh>
           <mesh position={[-0.392, 0, 0]}>
             <planeGeometry args={[0.028, subtitleText ? 0.34 : 0.24]} />

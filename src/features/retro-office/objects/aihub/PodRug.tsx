@@ -24,10 +24,14 @@ type OccupiedPod = {
 export function AihubPodRugs({
   agents,
   deskAssignmentByDeskUid,
+  sessionRootByAgentId = {},
   visible,
 }: {
   agents: OfficeAgent[];
   deskAssignmentByDeskUid: Record<string, string>;
+  // Phase 7d: subagent id → its session lead. A pod anchored by a subagent tints by the lead's
+  // color so a session spanning several pods reads as one colored team.
+  sessionRootByAgentId?: Record<string, string>;
   visible: boolean;
 }) {
   const occupiedPods = useMemo<OccupiedPod[]>(() => {
@@ -41,13 +45,14 @@ export function AihubPodRugs({
           .map((uid) => deskAssignmentByDeskUid[uid])
           .find((id) => Boolean(id));
       if (!anchorAgentId) continue; // empty pod → no rug
+      const tintAgentId = sessionRootByAgentId[anchorAgentId] ?? anchorAgentId;
       occupied.push({
         pod,
-        tint: colorById.get(anchorAgentId) ?? RUG_FALLBACK_TINT,
+        tint: colorById.get(tintAgentId) ?? RUG_FALLBACK_TINT,
       });
     }
     return occupied;
-  }, [agents, deskAssignmentByDeskUid, visible]);
+  }, [agents, deskAssignmentByDeskUid, sessionRootByAgentId, visible]);
 
   if (!visible || occupiedPods.length === 0) return null;
 
