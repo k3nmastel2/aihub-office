@@ -3,7 +3,20 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 2 — Ephemeral lifecycle choreography
+## Current phase: T12 stabilization sprint (re-prioritized ahead of Phase 3)
+
+**PHASE 2 CLOSED 2026-07-11.** Door walk-in: QA-verified (burst + dispersal + gating). Lifecycle
+logic: unit-proven (51 tests incl. the T15 regression guard: 7 done / cap 4 → all fade, 0 ghosts).
+Fade+hide: live-verified at 3 done nodes post-fix. At the 5-done starvation window QA observed no
+visible ghosts but could not obtain an exact count (session instability — see T12 escalation);
+recorded as verified-by-construction + partial-live; **exact >4-done live count carries forward
+into the next QA gate's checklist**. T16 = pre-existing upstream P2 (git-proven). T17 = environmental
+(multi-tab GPU eviction + dev-proxy stall). Commits b793856 + ab6c63a.
+
+**T12 ESCALATED + RE-PRIORITIZED (2026-07-11):** at 25 agents / 5 done nodes QA hit a 142-error
+burst and REPEATED full-canvas blackouts requiring hard reloads — the loop now functionally degrades
+at fleet-scale rosters and poisons every QA window. The stabilization sprint (task #11: production
+build first → RAF livePatchQueue re-enable → store value-diffing) runs BEFORE Phase 3.
 
 **PHASE 1 CLOSED 2026-07-10** on the "everything green except documented T12 debt" bar.
 Official shipped-state record (QA round 4, live churn, roster 19): auto-connect ~2s zero-click ·
