@@ -2365,7 +2365,15 @@ const buildInitialFurnitureLayout = (
               ensureOfficeSmsBooth(
                 ensureOfficeAtm(
                   ensureOfficePingPongTable(
-                    loadFurniture(storageNamespace) ?? materializeDefaults(layoutPreset),
+                    // The aihub floor is 100% preset-driven (not user-edited), so it ALWAYS
+                    // materializes fresh — otherwise the per-floor localStorage furniture cache
+                    // (`openclaw-office-furniture-v9:aihub-live`) pins the first-ever layout and
+                    // silently ignores every later preset change (Phase 9 remodel wouldn't reach
+                    // existing clients). Other floors keep their editable persistence.
+                    (layoutPreset === "aihub"
+                      ? null
+                      : loadFurniture(storageNamespace)) ??
+                      materializeDefaults(layoutPreset),
                   ),
                 ),
               ),
