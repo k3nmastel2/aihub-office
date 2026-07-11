@@ -15,6 +15,12 @@ describe("mapServiceIdToObject", () => {
     expect(mapServiceIdToObject("MLX")).toBe("server_room"); // case-insensitive
   });
 
+  it("maps the ailab umbrella service to the server room", () => {
+    // AI-Lab is the local inference/model stack; the hub emits it as the `ailab` service.
+    expect(mapServiceIdToObject("ailab")).toBe("server_room");
+    expect(mapServiceIdToObject("AI-Lab")).toBe("server_room");
+  });
+
   it("maps comfyui to the art studio", () => {
     expect(mapServiceIdToObject("comfyui")).toBe("art");
   });

@@ -44,7 +44,9 @@ const SERVICE_RULES: ServiceRule[] = [
   { match: ["voice", "tts", "speak", "kokoro", "chatterbox"], object: "phone_booth" },
   { match: ["memory", "graph", "recall", "brain", "knowledge"], object: "library" },
   { match: ["browser", "chrome", "playwright", "puppeteer"], object: "qa_device" },
-  { match: ["mlx", "ollama", "llama", "vllm"], object: "server_room" },
+  // "ailab" is the local inference/model stack (MLX/Ollama umbrella) → server room. Kept after
+  // comfyui/voice so a literal "comfyui"/"voice" service still wins art/phone_booth.
+  { match: ["mlx", "ollama", "llama", "vllm", "ailab", "ai-lab", "ai_lab", "inference"], object: "server_room" },
   { match: ["hub"], object: "atm" },
 ];
 

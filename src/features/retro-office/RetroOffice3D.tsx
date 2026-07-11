@@ -946,8 +946,14 @@ function useAgentTick(
       }
       // aihub agents enter through the front door and walk in to their target
       // (A* handles the walk-in); demo/openclaw keep the original random spawn.
+      // Jitter the entrance by more than one nav-grid cell so simultaneous arrivals never
+      // land on the exact same cell — an identical (0-distance) spawn deadlocks the collision
+      // bump system (it clears the path + retargets), which froze service-errand walk-ins.
       if (spawnAtDoor) {
-        return { x: AIHUB_DOOR_ENTRANCE.x, y: AIHUB_DOOR_ENTRANCE.y };
+        return {
+          x: AIHUB_DOOR_ENTRANCE.x + (Math.random() - 0.5) * 80,
+          y: AIHUB_DOOR_ENTRANCE.y + (Math.random() - 0.5) * 60,
+        };
       }
       return {
         x: Math.random() * 800 + 100,
@@ -2633,20 +2639,28 @@ export function RetroOffice3D({
     animationState?.smsBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
   // aihub service errands (Phase 5) OR-merge into the routes they reuse: voice → phone booth,
   // browser/chrome → QA lab, mlx/ollama → server room (github hold), memory/graph → library.
-  const resolvedPhoneBoothHoldByAgentId = mergeBooleanHoldMaps(
-    animationState?.phoneBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD,
-    aihubServiceErrands.phoneBooth,
+  // MEMOIZED so the merged map keeps a stable identity when its content is unchanged — the
+  // planning effect keys on these, and a fresh object every render made it re-plan the A* path
+  // every frame, freezing the walk (the errand agent never advanced along its path).
+  const phoneBoothBase =
+    animationState?.phoneBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
+  const resolvedPhoneBoothHoldByAgentId = useMemo(
+    () => mergeBooleanHoldMaps(phoneBoothBase, aihubServiceErrands.phoneBooth),
+    [phoneBoothBase, aihubServiceErrands.phoneBooth],
   );
-  const resolvedQaHoldByAgentId = mergeBooleanHoldMaps(
-    animationState?.qaHoldByAgentId ?? qaHoldByAgentId,
-    aihubServiceErrands.qaDevice,
+  const qaBase = animationState?.qaHoldByAgentId ?? qaHoldByAgentId;
+  const resolvedQaHoldByAgentId = useMemo(
+    () => mergeBooleanHoldMaps(qaBase, aihubServiceErrands.qaDevice),
+    [qaBase, aihubServiceErrands.qaDevice],
   );
-  const resolvedGithubReviewByAgentId = mergeBooleanHoldMaps(
+  const githubBase =
     animationState?.githubHoldByAgentId ??
-      (githubReviewAgentId
-        ? { [githubReviewAgentId]: true }
-        : EMPTY_BOOLEAN_RECORD),
-    aihubServiceErrands.serverRoom,
+    (githubReviewAgentId
+      ? { [githubReviewAgentId]: true }
+      : EMPTY_BOOLEAN_RECORD);
+  const resolvedGithubReviewByAgentId = useMemo(
+    () => mergeBooleanHoldMaps(githubBase, aihubServiceErrands.serverRoom),
+    [githubBase, aihubServiceErrands.serverRoom],
   );
   const resolvedLibraryHoldByAgentId = aihubServiceErrands.library;
   const resolvedJukeboxHoldByAgentId =
