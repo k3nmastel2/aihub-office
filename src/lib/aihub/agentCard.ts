@@ -201,7 +201,9 @@ export const buildAgentCardHistoryRows = (
       text: detail ? `${entry.tool} — ${detail}` : entry.tool,
     });
   }
-  const detail = trimmed(hub.detail);
+  // A blocked node's `detail` is already surfaced in the card's amber "Blocked" callout, so
+  // don't repeat it here; for non-blocked nodes `detail` is only shown in this history list.
+  const detail = hub.badge === "blocked" ? null : trimmed(hub.detail);
   if (detail) rows.push({ kind: "detail", text: detail });
   if (rows.length === 0) {
     rows.push({

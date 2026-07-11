@@ -212,6 +212,19 @@ describe("buildAgentCardHistoryRows", () => {
     expect(rows.some((r) => r.kind === "detail" && r.text === "why blocked")).toBe(true);
   });
 
+  it("does not repeat a blocked node's detail in history (it shows in the card callout)", () => {
+    const rows = buildAgentCardHistoryRows(
+      hub({ badge: "blocked", detail: "rate limited", hubStatus: "idle" }),
+    );
+    expect(rows.some((r) => r.kind === "detail")).toBe(false);
+    // Non-blocked detail still surfaces in history.
+    expect(
+      buildAgentCardHistoryRows(hub({ detail: "some note" })).some(
+        (r) => r.kind === "detail" && r.text === "some note",
+      ),
+    ).toBe(true);
+  });
+
   it("falls back to a single note when there is nothing to show", () => {
     const rows = buildAgentCardHistoryRows(hub({ task: "just started" }));
     expect(rows).toEqual([{ kind: "note", text: "just started" }]);
