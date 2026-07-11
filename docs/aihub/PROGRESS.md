@@ -53,10 +53,33 @@ serviceMap 17 + serviceErrands 12 + servicesStore 7) · full `tests/unit/` → o
 pre-existing failures (agentChatPanel-controls ×2, useGatewayConnection ×2, agentFleetHydration
 ×1), zero new.
 
+**Opus review (typescript-reviewer) — one P1 fixed + one P2 hardened:**
+- **P1 (fixed):** the planning `useEffect` in `useAgentTick` listed every sibling hold map in
+  its deps EXCEPT the new `libraryHoldByAgentId`, so a library errand arriving on a poll where
+  the roster array identity was unchanged (a memory/graph/recall `service_link` flipping active)
+  would not route the agent until an unrelated roster change re-fired the effect. Added the dep.
+  (server room / phone booth / QA errands were already correct — they ride the existing
+  `githubReviewByAgentId`/`phoneBoothHoldByAgentId`/`qaHoldByAgentId` deps.)
+- **P2 (hardened):** `servicesStore` snapshot signature is now order-independent (sorted) so a
+  reordered-but-equivalent poll keeps the stable reference.
+- Confirmed clean: `serviceErrands` throttle (no single-poll latch, clean release, despawn
+  drop), `servicesStore` identity stability + stable server snapshot, the errand memo's
+  identity-stable output (no T12 churn), `mergeBooleanHoldMaps` base-ref preservation, and the
+  `ServiceGlow` ref/mesh index alignment (no stale-ref crash). StrictMode double-invoke only
+  weakens the throttle in dev (harmless; prod runs the memo once).
+- **P2 (accepted/documented):** an idle→working transition caused *only* by a library errand
+  can walk the agent one poll toward its desk before the main chain turns it to the library
+  (the status-transition/new-actor blocks don't know "library"). Cosmetic, self-heals in one
+  poll, and doesn't apply to already-working agents (the common case — service users are
+  working). Left as-is to avoid churn in the T12-sensitive status-transition cascade.
+
+Prod build rebuilt clean with the fixes (`npm run build`), ready to restart :3100.
+
 **Next:** live Chrome self-verify on a prod build — services visible as glowing objects, HUD
 lists them, ≥1 live errand captured (agent walks to server rack / library / phone booth during
 real tool use). Requires live service_links on the hub (requested from "main"); services/
-service_links are empty until real service usage. Then prod rebuild + left up.
+service_links are empty until real service usage (a self-triggered sustained WebSearch on my own
+node → library errand is the backup). Then prod rebuild + left up.
 
 ---
 
