@@ -3,7 +3,22 @@
 _Checkpoint doc: updated at every increment so any interrupted session resumes losslessly._
 _Plan of record: `/Users/k3n/.claude/plans/i-want-you-to-parsed-rocket.md` · Fork map: `FORK.md`_
 
-## Current phase: 6 — Interactions (nudge / dismiss / read-only history) — SLICE ACCEPTED (QA gate next)
+## Current phase: 7 — Polish / parity + behavior simulation
+
+**PHASE 6 CLOSED 2026-07-11 (gate: PASS-WITH-ISSUES → closed).** QA independently verified all
+four interaction behaviors on prod with hard evidence: the agent card (correct live fields across
+session lead / subagent / hermes), affordance gating (composer only on nudgeable Claude sessions
+with explicit reasons elsewhere; dismiss only on idle/done), LIVE NUDGE (delivered → hub ran
+claude --resume; prompt confirmed server-side in the target transcript), LIVE DISMISS (confirm →
+roster 46→45, node absent from /api/live — also proving the dismiss-id fix live). Safety rails
+held (only cleared targets touched). P2s: nudge-resume status flip not observed within 3min
+(consistent with the fast-exiting resume child — folded into the HUB backlog item on nudge-child
+reliability); recurring bare "Uncaught (in promise)" (watch; possibly T22-adjacent). Commits
+349c29a→5d94d30. Evidence: evidence/phase6/70-74.
+
+**STANDING RULE (from QA's near-miss): HARD RELOAD (ignoreCache) at the START of every phase
+gate** — long-lived QA Chrome sessions silently serve stale cached bundles across phase
+boundaries (produced a near-false-FAIL and a near-false-regression this gate). — SLICE ACCEPTED (QA gate next)
 
 ### Phase 6 status — ACCEPTED (unit+typecheck green; live Chrome pass PASS; slice accepted by "main")
 
@@ -838,7 +853,7 @@ Resolve triage item T1 (WebGL context-loss root cause — Opus subagent), then s
 | 4 — Badges + tasks | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{badges,taskCards} · evidence/phase4 (pending) |
 | 5 — Services + errands | implemented (unit+typecheck green); live-verifying | tests/unit/aihub/{serviceMap,serviceErrands,servicesStore} |
 | 6 — Interactions | **ACCEPTED** (live-verified: card fields + gating × 3 agent types, nudge server-side-confirmed, dismiss full-e2e; QA gate next) | tests/unit/aihub/agentCard · evidence/phase6 |
-| 7 — Polish / parity | pending | — |
+| 7 — Polish / parity + behavior sim | in progress | — |
 | 8 — Hub link-out + retire office.js | pending | — |
 
 ## Vision guidance (Ken, 2026-07-11)
